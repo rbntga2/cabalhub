@@ -63,7 +63,17 @@
 const SB_URL='https://wnltwdbqtgpnaqdebzxc.supabase.co',SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndubHR3ZGJxdGdwbmFxZGVienhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyMTY1MjksImV4cCI6MjA5Mjc5MjUyOX0.MjR1PZgyRLxQxpOm-vKi7SUvryGLYanPRkQ2OKT9jS4';
 let sb;try{sb=window.supabase.createClient(SB_URL,SB_KEY)}catch(e){}
 async function loginGoogle(){if(!sb){alert('Configure Supabase no .env');return}const{error}=await sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin+'/app.html'}});if(error)alert('Erro: '+error.message)}
-async function ck(){if(!sb)return;const{data:{session}}=await sb.auth.getSession();if(session)location.href='/app.html'}
+async function ck(){
+  if(!sb)return;
+  const{data:{session}}=await sb.auth.getSession();
+  if(session){
+    const ref=new URLSearchParams(location.search).get('ref');
+    if(ref)localStorage.setItem('cabalhub_ref',ref);
+    location.href='/app.html'
+  }
+}
+const _rp=new URLSearchParams(location.search).get('ref');
+if(_rp)localStorage.setItem('cabalhub_ref',_rp);
 ck();
 async function ldS(){if(!sb)return;try{const{data}=await sb.from('servidores').select('*').eq('ativo',true).order('nome');if(!data||!data.length)return;document.getElementById('sGrid').innerHTML=data.map(s=>'<div class="sc" onclick="loginGoogle()"><h3>'+s.nome.toUpperCase()+'</h3><div class="r">'+s.regiao+'</div><div class="s">— players</div><div class="e">ENTRAR</div></div>').join('')}catch(e){}}
 ldS();

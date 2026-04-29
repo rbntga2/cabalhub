@@ -189,7 +189,10 @@
   <div class="ssel"><div class="sdot"></div><select id="serverSelect" onchange="trocarServidor(this.value)"></select></div>
   <div class="tright">
     <div class="nbtn" onclick="nav('notif')">🔔<div class="nbdg" id="notifCount" style="display:none">0</div></div>
-    <div class="tavt" id="topAvatar" onclick="nav('perfil')"></div>
+    <div class="tavt" id="topAvatar" style="position:relative">
+  <div id="avatarMenu" style="display:none;position:absolute;top:42px;right:0;background:var(--bg-2);border:1px solid var(--border);border-radius:10px;padding:6px;min-width:140px;z-index:200">
+    <div style="padding:8px 12px;border-radius:6px;cursor:pointer;font-size:12px;color:var(--text)" onmouseover="this.style.background='var(--bg-3)'" onmouseout="this.style.background=''" onclick="nav('perfil')">👤 Meu Perfil</div>
+    <div style="padding:8px 12px;border-radius:6px;cursor:pointer;font-size:12px;color:var(--red)" onmouseover="this.style.background='var(--bg-3)'" onmouseout="this.style.background=''" onclick="logout()">🚪 Sair</div>
   </div>
 </div>
 
@@ -429,6 +432,19 @@ const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJ
 const ADMIN_EMAIL = 'rbntga2@gmail.com';
 
 let sb, user, profile, servidor, servidores = [], cropper;
+
+document.addEventListener('click', (e) => {
+  const menu = document.getElementById('avatarMenu');
+  const av = document.getElementById('topAvatar');
+  if (av && av.contains(e.target)) { menu.style.display = menu.style.display === 'none' ? 'block' : 'none'; }
+  else if (menu) { menu.style.display = 'none'; }
+});
+async function logout() {
+  if (sb) await sb.auth.signOut();
+  localStorage.removeItem('cabalhub_server');
+  localStorage.removeItem('cabalhub_last_server');
+  location.href = '/index.html';
+}
 let compImgBlob = null, compVideoUrl = null, compSpoiler = null;
 
 try { sb = window.supabase.createClient(SB_URL, SB_KEY); } catch(e) { console.log('Supabase não configurado'); }
@@ -771,7 +787,13 @@ function closeCrop() {
 function confirmCrop() {
   if (!cropper) return;
   const canvas = cropper.getCroppedCanvas({ maxWidth: 1200, maxHeight: 1200 });
-  canvas.toBlob(blob => {
+  canvas.toBlob(async (blob) => {
+    if (window._cropCallback) {
+      await window._cropCallback(blob);
+      window._cropCallback = null;
+      closeCrop();
+      return;
+    }
     compImgBlob = blob;
     const url = URL.createObjectURL(blob);
     document.getElementById('compPreview').innerHTML = '<img src="'+url+'"><div class="rm" onclick="removePreview()">✕</div>';
@@ -839,12 +861,12 @@ async function publicar() {
   // Upload image
   if (compImgBlob) {
     tipo = 'media';
-    const fname = 'posts/' + profile.id + '/' + Date.now() + '.jpg';
-    const { data, error } = await sb.storage.from('images').upload(fname, compImgBlob);
-    if (!error) {
-      const { data: urlData } = sb.storage.from('images').getPublicUrl(fname);
-      imgUrl = urlData.publicUrl;
-    }
+const fname = 'posts_' + profile.id + '_' + Date.now() + '.jpg';
+const { data, error } = await sb.storage.from('images').upload(fname, compImgBlob, { contentType: 'image/jpeg', upsert: false });
+if (!error) {
+  const { data: urlData } = sb.storage.from('images').getPublicUrl(fname);
+  imgUrl = urlData.publicUrl;
+} else { console.error('Upload error:', error); }
   }
   
   if (compVideoUrl) {
@@ -936,7 +958,19 @@ async function criarPerfil() {
   });
   
   profile = data;
-  document.getElementById('createProfileModal').classList.remove('on');
+document.getElementById('createProfileModal').classList.remove('on');
+
+// Processar referral
+const refNick = localStorage.getItem('cabalhub_ref');
+if (refNick && refNick !== data.nick) {
+  try {
+    const { data: rp } = await sb.from('server_profiles').select('id').eq('nick', refNick).eq('servidor_id', servidor.id).maybeSingle();
+    if (rp) {
+      await sb.from('pending_referrals').insert({ referrer_profile_id: rp.id, referred_user_id: user.id, servidor_id: servidor.id });
+    }
+  } catch(e) { console.log('Ref:', e); }
+  localStorage.removeItem('cabalhub_ref');
+}
   updateUI();
   loadFeed();
   loadQuickAds();
@@ -1252,10 +1286,10 @@ function pickAvatar() {
         });
         // Override confirmCrop to save as avatar
         window._cropCallback = async (blob) => {
-          const fname = 'avatars/' + profile.id + '/' + Date.now() + '.jpg';
-          const { error } = await sb.storage.from('images').upload(fname, blob);
-          if (!error) {
-            const { data } = sb.storage.from('images').getPublicUrl(fname);
+          const fname = 'avatar_' + profile.id + '_' + Date.now() + '.jpg';
+const { error } = await sb.storage.from('images').upload(fname, blob, { contentType: 'image/jpeg', upsert: false });
+if (error) { console.error('Avatar upload error:', error); alert('Erro ao enviar avatar: ' + error.message); return; }
+const { data } = sb.storage.from('images').getPublicUrl(fname);
             await sb.from('server_profiles').update({ avatar_url: data.publicUrl }).eq('id', profile.id);
             profile.avatar_url = data.publicUrl;
             updateUI();
@@ -1314,11 +1348,12 @@ publicar = async function() {
   let plataforma = null, enqueteOpcoes = null, preco = null, precoSpoiler = false;
   
   if (compImgBlob) {
-    const fname = 'posts/' + profile.id + '/' + Date.now() + '.jpg';
-    const { data, error } = await sb.storage.from('images').upload(fname, compImgBlob);
-    if (!error) { const { data: u } = sb.storage.from('images').getPublicUrl(fname); imgUrl = u.publicUrl; }
-    if (tipo === 'feed') tipo = 'media';
-  }
+  const fname = 'posts_' + profile.id + '_' + Date.now() + '.jpg';
+  const { data, error } = await sb.storage.from('images').upload(fname, compImgBlob, { contentType: 'image/jpeg', upsert: false });
+  if (error) { console.error('Upload error:', error); }
+  else { const { data: u } = sb.storage.from('images').getPublicUrl(fname); imgUrl = u.publicUrl; }
+  if (tipo === 'feed') tipo = 'media';
+}
   if (compVideoUrl) { plataforma = compVideoUrl.includes('twitch') ? 'twitch' : 'youtube'; tipo = 'video'; }
   
   if (compMode === 'enquete') {
@@ -1606,6 +1641,24 @@ document.addEventListener('keydown', e => {
 
 // Init
 init();
+// URL routing
+function checkRoute() {
+  const path = location.pathname;
+  const m = path.match(/^\/(post|anuncio)\/(.+)$/);
+  if (m) setTimeout(() => openPostById(m[2]), 1500);
+}
+async function openPostById(pid) {
+  if (!sb) return;
+  const { data: p } = await sb.from('posts').select('*, server_profiles(nick, avatar_url, cargo)').eq('id', pid).maybeSingle();
+  if (!p || p.status === 'deletado' || p.status === 'oculto') {
+    document.querySelector('.main').innerHTML = '<div style="text-align:center;padding:80px"><div style="font-family:var(--fh);font-size:20px;color:var(--red);letter-spacing:2px;margin-bottom:12px">404</div><div style="color:var(--text-d)">Esta página não existe mais.</div><div style="margin-top:16px"><button class="csub" onclick="location.href=\'/app.html\'">Voltar ao Feed</button></div></div>';
+    return;
+  }
+  document.getElementById('feedList').innerHTML = renderPost(p);
+  document.getElementById('feedList').querySelectorAll('.spi').forEach(s => s.addEventListener('click', () => s.classList.add('rev')));
+  toggleComments(pid);
+}
+checkRoute();
 </script>
 </body>
 </html>
