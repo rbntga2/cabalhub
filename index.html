@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1280">
+<title>CabalHub.online — A rede social do Cabal Online</title>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Exo+2:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{--bg-0:#06080c;--bg-1:#0b0f18;--bg-2:#111827;--bg-3:#1a2235;--border:#1e2a42;--text:#b8c5d9;--text-dim:#5a6a85;--text-bright:#e2e8f3;--accent:#f0883e;--accent-dim:#f0883e22;--blue:#4ea4f5;--green:#34d399;--red:#f47272;--gold:#fbbf24;--purple:#a78bfa;--font-head:'Chakra Petch',sans-serif;--font-body:'Exo 2',sans-serif;--font-mono:'JetBrains Mono',monospace}
+*{margin:0;padding:0;box-sizing:border-box}body{background:var(--bg-0);color:var(--text);font-family:var(--font-body);min-width:1000px}::selection{background:var(--accent);color:#000}::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:var(--bg-0)}::-webkit-scrollbar-thumb{background:var(--bg-3);border-radius:3px}
+.ctn{max-width:1000px;margin:0 auto;padding:0 32px}
+.hero{position:relative;text-align:center;padding:100px 0 60px}
+.hero::before{content:'';position:absolute;top:-80px;left:50%;transform:translateX(-50%);width:800px;height:500px;background:radial-gradient(ellipse,var(--accent-dim),transparent 70%);filter:blur(80px);pointer-events:none}
+.hero-logo{font-family:var(--font-head);font-size:clamp(40px,6vw,64px);font-weight:700;color:var(--accent);letter-spacing:6px;position:relative;text-shadow:0 0 60px var(--accent-dim)}.hero-logo .d{color:var(--blue);font-weight:400;font-size:.5em;letter-spacing:2px}
+.hero-tag{font-size:20px;color:var(--text);max-width:600px;margin:16px auto 0;line-height:1.6;position:relative}.hero-tag strong{color:var(--accent)}
+.hero-sub{font-size:14px;color:var(--text-dim);margin-top:8px;position:relative;letter-spacing:.5px}
+.hero-cta{margin-top:36px;position:relative}
+.btn-g{display:inline-flex;align-items:center;gap:8px;padding:14px 32px;border-radius:10px;font-family:var(--font-body);font-size:15px;font-weight:600;cursor:pointer;border:none;background:#fff;color:#333;box-shadow:0 2px 12px rgba(0,0,0,.3);transition:all .25s}.btn-g:hover{transform:translateY(-2px);box-shadow:0 6px 24px rgba(0,0,0,.4)}.btn-g svg{width:20px;height:20px}
+.sec{padding:60px 0;border-top:1px solid var(--border)}.sec-t{font-family:var(--font-head);font-size:13px;font-weight:600;color:var(--blue);letter-spacing:4px;text-transform:uppercase;text-align:center;margin-bottom:32px}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.fc{background:var(--bg-2);border:1px solid var(--border);border-radius:12px;padding:24px;text-align:center;transition:all .2s}.fc:hover{border-color:var(--accent);transform:translateY(-3px)}.fc .i{font-size:28px;margin-bottom:12px}.fc h4{font-family:var(--font-head);font-size:13px;color:var(--accent);letter-spacing:1px;margin-bottom:6px}.fc p{font-size:13px;color:var(--text-dim);line-height:1.5}
+.sg{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px;margin-bottom:24px}
+.sc{background:var(--bg-2);border:1px solid var(--border);border-radius:12px;padding:24px;text-align:center;transition:all .2s;cursor:pointer}.sc:hover{border-color:var(--green);transform:translateY(-3px)}.sc h3{font-family:var(--font-head);font-size:18px;font-weight:700;color:var(--text-bright);letter-spacing:2px;margin-bottom:4px}.sc .r{font-size:12px;color:var(--text-dim)}.sc .s{font-family:var(--font-mono);font-size:13px;color:var(--green);margin-top:10px}.sc .e{display:inline-block;margin-top:12px;padding:8px 20px;background:var(--green);color:#000;border-radius:8px;font-size:12px;font-weight:700;letter-spacing:1px}
+.se{background:var(--bg-1);border:1px dashed var(--border);border-radius:12px;padding:24px;text-align:center}.se p{color:var(--text-dim);font-size:13px;margin-bottom:12px}
+.rf{background:var(--bg-2);border:1px solid var(--border);border-radius:12px;padding:24px;max-width:500px;margin:16px auto 0;display:none}.rf.show{display:block}.rf h3{font-family:var(--font-head);font-size:14px;color:var(--accent);letter-spacing:1px;margin-bottom:16px}
+.fr{margin-bottom:12px}.fr label{display:block;font-size:11px;color:var(--text-dim);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px}.fi{width:100%;background:var(--bg-1);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text-bright);font-family:var(--font-body);font-size:14px;outline:none}.fi:focus{border-color:var(--blue)}.fi::placeholder{color:var(--text-dim)}select.fi{cursor:pointer}select.fi option{background:var(--bg-2)}
+.bs{padding:10px 20px;border-radius:8px;font-family:var(--font-body);font-size:13px;font-weight:600;cursor:pointer;border:none;transition:all .2s}.ba{background:linear-gradient(135deg,var(--accent),#e8722a);color:#fff}.ba:hover{transform:translateY(-1px)}.bo{background:transparent;color:var(--text);border:1px solid var(--border)}.bo:hover{border-color:var(--accent);color:var(--accent)}
+.cc{background:var(--bg-2);border:1px solid var(--border);border-radius:12px;padding:24px;text-align:center;position:relative;overflow:hidden}.cc::after{content:'EM BREVE';position:absolute;inset:0;background:rgba(6,8,12,.8);display:flex;align-items:center;justify-content:center;font-family:var(--font-head);font-size:14px;color:var(--text-dim);letter-spacing:3px;backdrop-filter:blur(4px)}.cc h4{font-family:var(--font-head);font-size:16px;color:var(--gold);letter-spacing:2px;margin-bottom:8px}.cc .pr{font-family:var(--font-mono);font-size:28px;color:var(--text-bright);font-weight:700}
+.stp{background:var(--bg-2);border:1px solid var(--border);border-radius:12px;padding:24px;position:relative}.stp .n{font-family:var(--font-head);font-size:48px;font-weight:700;color:var(--accent);opacity:.1;position:absolute;top:12px;right:16px}.stp h3{font-family:var(--font-head);font-size:14px;color:var(--accent);letter-spacing:1px;margin-bottom:6px}.stp p{font-size:13px;color:var(--text-dim);line-height:1.5}
+.foot{border-top:1px solid var(--border);padding:24px 0;text-align:center;color:var(--text-dim);font-size:12px}
+.al{padding:12px 16px;border-radius:8px;margin:12px 0;font-size:13px;display:none}.al.show{display:block}.al-ok{background:rgba(52,211,153,.15);color:var(--green);border:1px solid rgba(52,211,153,.3)}.al-er{background:rgba(244,114,114,.15);color:var(--red);border:1px solid rgba(244,114,114,.3)}
+</style>
+</head>
+<body>
+<div class="ctn">
+<div class="hero">
+<div class="hero-logo">CABALHUB<span class="d">.ONLINE</span></div>
+<p class="hero-tag">A rede social da comunidade <strong>Cabal Online</strong>. Conecte-se com players de todos os servidores. Negocie, compartilhe e cresça junto.</p>
+<p class="hero-sub">Não somos um servidor de Cabal — somos o ponto de encontro de TODOS os servidores.</p>
+<div class="hero-cta"><button class="btn-g" onclick="loginGoogle()"><svg viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>Entrar com Google</button></div>
+</div>
+<div class="sec"><div class="sec-t">Por que CabalHub?</div><div class="g3">
+<div class="fc"><div class="i">🏪</div><h4>Loja Aberta</h4><p>Qualquer player anuncia e negocia itens. Ofertas ocultas com $spoiler — tipo leilão fechado.</p></div>
+<div class="fc"><div class="i">❤️</div><h4>Algoritmo Justo</h4><p>Cada coração de um player único reposiciona o post no feed. A comunidade decide o que merece destaque.</p></div>
+<div class="fc"><div class="i">🏰</div><h4>Multi-Servidor</h4><p>Um perfil por servidor. Seus créditos, anúncios e posts são independentes em cada um.</p></div>
+<div class="fc"><div class="i">✦</div><h4>$spoiler</h4><p>Oculte preços, ofertas ou informações em qualquer post. Em anúncios, ofertas só o dono vê.</p></div>
+<div class="fc"><div class="i">🎬</div><h4>Streamers</h4><p>Área dedicada para streamers verificados. Assista lives direto no site com embed de Twitch e YouTube.</p></div>
+<div class="fc"><div class="i">📌</div><h4>Mural Oficial</h4><p>Equipe de cada servidor publica atualizações, eventos e códigos brinde direto no feed.</p></div>
+</div></div>
+<div class="sec"><div class="sec-t">Servidores Disponíveis</div><div class="sg" id="sGrid"><div class="sc" onclick="loginGoogle()"><h3>INFINITY</h3><div class="r">🇧🇷 Brasil</div><div class="s">— players</div><div class="e">ENTRAR</div></div></div>
+<div class="se"><p>Não encontrou seu servidor?</p><button class="bs bo" onclick="document.getElementById('rForm').classList.toggle('show')">📩 Recomendar Servidor</button></div>
+<div class="rf" id="rForm"><h3>📩 Recomendar Servidor</h3><div class="fr"><label>Nome do servidor</label><input class="fi" id="rN" placeholder="Ex: Venus, Mars..."></div><div class="fr"><label>Região</label><select class="fi" id="rR"><option>Brasil</option><option>EUA</option><option>Europa</option><option>Ásia</option><option>Outro</option></select></div><div class="fr"><label>Link do site ou Discord (opcional)</label><input class="fi" id="rL" placeholder="https://..."></div><div class="fr"><label>Seu nick nesse servidor</label><input class="fi" id="rK" placeholder="Seu nick"></div><div class="al" id="rA"></div><div style="display:flex;gap:8px;margin-top:16px"><button class="bs ba" onclick="envRec()">Enviar</button><button class="bs bo" onclick="document.getElementById('rForm').classList.remove('show')">Cancelar</button></div></div></div>
+<div class="sec"><div class="sec-t">Como Funciona</div><div class="g3">
+<div class="stp"><div class="n">1</div><h3>Crie sua conta</h3><p>Login rápido com Google. Sem senha, sem formulário. Um clique e pronto.</p></div>
+<div class="stp"><div class="n">2</div><h3>Escolha seu servidor</h3><p>Selecione o servidor que você joga. Crie seu perfil com nick e avatar. Cada servidor é independente.</p></div>
+<div class="stp"><div class="n">3</div><h3>Conecte-se</h3><p>Poste, anuncie na loja, comente, faça ofertas com $spoiler, convide amigos e ganhe créditos.</p></div>
+</div></div>
+<div class="sec"><div class="sec-t">Créditos</div><div class="g3"><div class="cc"><h4>STARTER</h4><div class="pr">—</div></div><div class="cc"><h4>PREMIUM</h4><div class="pr">—</div></div><div class="cc"><h4>ELITE</h4><div class="pr">—</div></div></div><p style="text-align:center;color:var(--text-dim);font-size:12px;margin-top:16px">Ganhe créditos grátis convidando amigos (50 ⓒ por convite) e completando missões.</p></div>
+</div>
+<footer class="foot"><div class="ctn">CabalHub.online — A rede social da comunidade Cabal Online</div></footer>
+<script>
+const SB_URL='https://wnltwdbqtgpnaqdebzxc.supabase.co',SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndubHR3ZGJxdGdwbmFxZGVienhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyMTY1MjksImV4cCI6MjA5Mjc5MjUyOX0.MjR1PZgyRLxQxpOm-vKi7SUvryGLYanPRkQ2OKT9jS4';
+let sb;try{sb=window.supabase.createClient(SB_URL,SB_KEY)}catch(e){}
+async function loginGoogle(){if(!sb){alert('Configure Supabase no .env');return}const{error}=await sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin+'/app.html'}});if(error)alert('Erro: '+error.message)}
+async function ck(){if(!sb)return;const{data:{session}}=await sb.auth.getSession();if(session)location.href='/app.html'}
+ck();
+async function ldS(){if(!sb)return;try{const{data}=await sb.from('servidores').select('*').eq('ativo',true).order('nome');if(!data||!data.length)return;document.getElementById('sGrid').innerHTML=data.map(s=>'<div class="sc" onclick="loginGoogle()"><h3>'+s.nome.toUpperCase()+'</h3><div class="r">'+s.regiao+'</div><div class="s">— players</div><div class="e">ENTRAR</div></div>').join('')}catch(e){}}
+ldS();
+async function envRec(){const n=document.getElementById('rN').value.trim(),r=document.getElementById('rR').value,l=document.getElementById('rL').value.trim(),k=document.getElementById('rK').value.trim(),a=document.getElementById('rA');if(!n){a.className='al al-er show';a.textContent='Preencha o nome do servidor';return}if(sb){const{error}=await sb.from('server_requests').insert({nome_servidor:n,regiao:r,link:l,nick_solicitante:k});if(error){a.className='al al-er show';a.textContent='Erro: '+error.message;return}}a.className='al al-ok show';a.textContent='✅ Recomendação enviada!';setTimeout(()=>{a.classList.remove('show');document.getElementById('rForm').classList.remove('show')},3000);document.getElementById('rN').value='';document.getElementById('rL').value='';document.getElementById('rK').value=''}
+</script>
+</body>
+</html>
