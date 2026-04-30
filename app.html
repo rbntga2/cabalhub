@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=1280">
 <title>CabalHub.online</title>
 <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Exo+2:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
 <style>
@@ -337,11 +337,13 @@
     
     <div style="display:flex;gap:4px;margin-bottom:20px;flex-wrap:wrap" id="adminTabs">
       <div class="ltab on" onclick="adminTab('dashboard')">📊 Dashboard</div>
+      <div class="ltab" onclick="adminTab('creditos')">💰 Créditos</div>
       <div class="ltab" onclick="adminTab('posts')">📋 Posts</div>
       <div class="ltab" onclick="adminTab('users')">👥 Usuários</div>
       <div class="ltab" onclick="adminTab('cargos')">📩 Cargos</div>
       <div class="ltab" onclick="adminTab('servers')">🏰 Servidores</div>
-      <div class="ltab" onclick="adminTab('features')">⚙️ Features</div>
+      <div class="ltab" onclick="adminTab('config')">⚙️ Config</div>
+      <div class="ltab" onclick="adminTab('features')">🔌 Features</div>
     </div>
     <div id="adminContent"></div>
   </div>
@@ -447,20 +449,25 @@ async function logout() {
 }
 let compImgBlob = null, compVideoUrl = null, compSpoiler = null;
 
-try { sb = window.supabase.createClient(SB_URL, SB_KEY); } catch(e) { console.log('Supabase não configurado'); }
+try { const _sb = window.supabase || window.Supabase; sb = _sb.createClient(SB_URL, SB_KEY); } catch(e) { console.error('Supabase init error:', e); }
 
 // ══════ INIT ══════
 async function init() {
   if (!sb) { mockMode(); return; }
-  const { data: { session } } = await sb.auth.getSession();
-  if (!session) { location.href = '/index.html'; return; }
-  user = session.user;
-  await loadServidores();
-  const savedSrv = localStorage.getItem('cabalhub_server');
-  if (savedSrv && servidores.find(s => s.id === savedSrv)) {
-    await setServidor(savedSrv);
-  } else if (servidores.length > 0) {
-    await setServidor(servidores[0].id);
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) { location.href = '/index.html'; return; }
+    user = session.user;
+    await loadServidores();
+    const savedSrv = localStorage.getItem('cabalhub_server');
+    if (savedSrv && servidores.find(s => s.id === savedSrv)) {
+      await setServidor(savedSrv);
+    } else if (servidores.length > 0) {
+      await setServidor(servidores[0].id);
+    }
+  } catch(e) {
+    console.error('Init error:', e);
+    document.getElementById('feedList').innerHTML = '<div class="empty" style="color:var(--red)">Erro ao iniciar: ' + e.message + '<br><br><button class="csub" onclick="location.reload()">Recarregar</button></div>';
   }
 }
 
@@ -474,7 +481,8 @@ function mockMode() {
 }
 
 async function loadServidores() {
-  const { data } = await sb.from('servidores').select('*').eq('ativo', true).order('nome');
+  const { data, error } = await sb.from('servidores').select('*').eq('ativo', true).order('nome');
+  if (error) { console.error('Load servers error:', error); }
   servidores = data || [];
   const sel = document.getElementById('serverSelect');
   sel.innerHTML = servidores.map(s => '<option value="'+s.id+'">🏰 '+s.nome+'</option>').join('');
@@ -486,32 +494,38 @@ async function setServidor(srvId) {
   localStorage.setItem('cabalhub_server', srvId);
   document.getElementById('serverSelect').value = srvId;
   
-  // Check if profile exists for this server
-  const { data: prof } = await sb.from('server_profiles')
-    .select('*')
-    .eq('user_id', user.id)
-    .eq('servidor_id', srvId)
-    .maybeSingle();
-  
-  if (!prof) {
-    openCreateProfile(servidor.nome);
-    return;
+  try {
+    // Check if profile exists for this server
+    const { data: prof, error } = await sb.from('server_profiles')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('servidor_id', srvId)
+      .maybeSingle();
+    
+    if (error) { console.error('Profile fetch error:', error); }
+    
+    if (!prof) {
+      openCreateProfile(servidor.nome);
+      return;
+    }
+    profile = prof;
+    updateUI();
+    
+    // Log migration (non-blocking, ignore errors)
+    const lastSrv = localStorage.getItem('cabalhub_last_server');
+    if (lastSrv && lastSrv !== srvId) {
+      sb.from('server_migrations').insert({
+        user_id: user.id, from_servidor_id: lastSrv, to_servidor_id: srvId
+      }).then(() => {}).catch(() => {});
+    }
+    localStorage.setItem('cabalhub_last_server', srvId);
+    
+    loadFeed();
+    loadQuickAds();
+    checkCraft();
+  } catch(e) {
+    console.error('setServidor error:', e);
   }
-  profile = prof;
-  updateUI();
-  
-  // Log migration
-  const lastSrv = localStorage.getItem('cabalhub_last_server');
-  if (lastSrv && lastSrv !== srvId) {
-    sb.from('server_migrations').insert({
-      user_id: user.id, from_servidor_id: lastSrv, to_servidor_id: srvId
-    }).then(() => {});
-  }
-  localStorage.setItem('cabalhub_last_server', srvId);
-  
-  loadFeed();
-  loadQuickAds();
-  checkCraft();
 }
 
 async function trocarServidor(srvId) { await setServidor(srvId); }
@@ -1275,34 +1289,61 @@ function pickAvatar() {
   input.onchange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
+
     const reader = new FileReader();
     reader.onload = (ev) => {
       document.getElementById('cropImg').src = ev.target.result;
       document.getElementById('cropModal').classList.add('on');
+
       setTimeout(() => {
         if (cropper) cropper.destroy();
+
         cropper = new Cropper(document.getElementById('cropImg'), {
-          aspectRatio: 1, viewMode: 1, autoCropArea: 0.9
+          aspectRatio: 1,
+          viewMode: 1,
+          autoCropArea: 0.9
         });
+
         // Override confirmCrop to save as avatar
         window._cropCallback = async (blob) => {
           const fname = 'avatar_' + profile.id + '_' + Date.now() + '.jpg';
-const { error } = await sb.storage.from('images').upload(fname, blob, { contentType: 'image/jpeg', upsert: false });
-if (error) { console.error('Avatar upload error:', error); alert('Erro ao enviar avatar: ' + error.message); return; }
-const { data } = sb.storage.from('images').getPublicUrl(fname);
-            await sb.from('server_profiles').update({ avatar_url: data.publicUrl }).eq('id', profile.id);
-            profile.avatar_url = data.publicUrl;
-            updateUI();
-            loadProfile();
+
+          const { error } = await sb.storage
+            .from('images')
+            .upload(fname, blob, {
+              contentType: 'image/jpeg',
+              upsert: false
+            });
+
+          if (error) {
+            console.error('Avatar upload error:', error);
+            alert('Erro ao enviar avatar: ' + error.message);
+            return;
           }
+
+          // 🔥 CORREÇÃO AQUI
+          const urlData = sb.storage.from('images').getPublicUrl(fname);
+          const publicUrl = urlData.data.publicUrl;
+
+          await sb
+            .from('server_profiles')
+            .update({ avatar_url: publicUrl })
+            .eq('id', profile.id);
+
+          profile.avatar_url = publicUrl;
+
+          updateUI();
+          loadProfile();
         };
+
       }, 100);
     };
+
     reader.readAsDataURL(file);
   };
+
   input.click();
 }
-
 // Override nav to also load profile/loja/streamers
 const _origNav = nav;
 nav = function(page) {
@@ -1588,6 +1629,81 @@ async function adminTab(tab) {
     const { data } = await sb.from('features_config').select('*').order('nome');
     el.innerHTML = '<div style="font-size:13px;color:var(--text-d);margin-bottom:16px">Toggle features globais. Mudanças são instantâneas sem downtime.</div>' +
       (data || []).map(f => '<div style="display:flex;align-items:center;gap:12px;padding:12px;border-bottom:1px solid var(--border)"><span style="flex:1;color:var(--text-b);font-weight:500">' + f.nome + '</span><label style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" ' + (f.ativo ? 'checked' : '') + ' onchange="adminToggleFeature(\'' + f.id + '\',this.checked)" style="accent-color:var(--acc)"> ' + (f.ativo ? '<span style="color:var(--grn)">Ativo</span>' : '<span style="color:var(--text-d)">Desativado</span>') + '</label></div>').join('');
+  } else if (tab === 'creditos') {
+    el.innerHTML = '<div class="loading"><div class="spin"></div></div>';
+    const srvId = adminSrv === 'all' ? null : adminSrv;
+    
+    // Stats gerais de créditos
+    let query = sb.from('creditos_log').select('*').order('created_at', { ascending: false }).limit(100);
+    if (srvId) query = query.eq('servidor_id', srvId);
+    const { data: logs } = await query;
+    
+    const totalGanho = (logs||[]).filter(l=>l.valor>0).reduce((s,l)=>s+l.valor,0);
+    const totalGasto = Math.abs((logs||[]).filter(l=>l.valor<0).reduce((s,l)=>s+l.valor,0));
+    const porTipo = {};
+    (logs||[]).forEach(l => { porTipo[l.tipo] = (porTipo[l.tipo]||0) + Math.abs(l.valor); });
+    
+    // Stats por dia (últimos 7 dias)
+    const porDia = {};
+    (logs||[]).forEach(l => {
+      const d = l.created_at.substring(0,10);
+      if (!porDia[d]) porDia[d] = { ganho:0, gasto:0 };
+      if (l.valor > 0) porDia[d].ganho += l.valor;
+      else porDia[d].gasto += Math.abs(l.valor);
+    });
+    
+    let html = '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">';
+    html += '<div style="background:var(--bg-2);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center"><div style="font-family:var(--fm);font-size:22px;font-weight:700;color:var(--grn)">+' + totalGanho + '</div><div style="font-size:11px;color:var(--text-d)">Total Ganho</div></div>';
+    html += '<div style="background:var(--bg-2);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center"><div style="font-family:var(--fm);font-size:22px;font-weight:700;color:var(--red)">-' + totalGasto + '</div><div style="font-size:11px;color:var(--text-d)">Total Gasto</div></div>';
+    html += '<div style="background:var(--bg-2);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center"><div style="font-family:var(--fm);font-size:22px;font-weight:700;color:var(--gld)">' + (totalGanho-totalGasto) + '</div><div style="font-size:11px;color:var(--text-d)">Líquido</div></div>';
+    html += '<div style="background:var(--bg-2);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center"><div style="font-family:var(--fm);font-size:22px;font-weight:700;color:var(--blu)">' + (logs||[]).length + '</div><div style="font-size:11px;color:var(--text-d)">Transações</div></div></div>';
+    
+    // Por tipo
+    html += '<div style="font-family:var(--fh);font-size:12px;color:var(--blu);letter-spacing:2px;margin-bottom:12px">DISTRIBUIÇÃO POR TIPO</div>';
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-bottom:20px">';
+    const tipoLabels = {referral_dado:'Referral (dado)',referral_recebido:'Referral (recebido)',missao:'Missões',anuncio_rapido:'Anúncio Rápido',troca_pontos:'Troca Pontos',admin_ajuste:'Ajuste Admin',reset:'Reset'};
+    const tipoCores = {referral_dado:'var(--acc)',referral_recebido:'var(--grn)',missao:'var(--gld)',anuncio_rapido:'var(--red)',troca_pontos:'var(--blu)',admin_ajuste:'var(--pur)',reset:'var(--text-d)'};
+    Object.entries(porTipo).forEach(([t,v]) => {
+      html += '<div style="background:var(--bg-2);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center"><div style="font-family:var(--fm);font-size:16px;font-weight:700;color:' + (tipoCores[t]||'var(--text)') + '">' + v + ' ⓒ</div><div style="font-size:10px;color:var(--text-d);margin-top:4px">' + (tipoLabels[t]||t) + '</div></div>';
+    });
+    html += '</div>';
+    
+    // Por dia
+    const dias = Object.entries(porDia).sort((a,b) => b[0].localeCompare(a[0])).slice(0,7);
+    if (dias.length > 0) {
+      html += '<div style="font-family:var(--fh);font-size:12px;color:var(--blu);letter-spacing:2px;margin-bottom:12px">ÚLTIMOS 7 DIAS</div>';
+      html += '<table style="width:100%;border-collapse:collapse"><tr style="border-bottom:2px solid var(--border)"><th style="padding:8px;text-align:left;font-size:11px;color:var(--blu)">Dia</th><th style="padding:8px;text-align:center;font-size:11px;color:var(--grn)">Ganho</th><th style="padding:8px;text-align:center;font-size:11px;color:var(--red)">Gasto</th><th style="padding:8px;text-align:center;font-size:11px;color:var(--gld)">Líquido</th></tr>';
+      dias.forEach(([d,v]) => {
+        html += '<tr style="border-bottom:1px solid var(--border)"><td style="padding:8px;font-family:var(--fm);font-size:12px">' + d + '</td><td style="padding:8px;text-align:center;color:var(--grn);font-family:var(--fm)">+' + v.ganho + '</td><td style="padding:8px;text-align:center;color:var(--red);font-family:var(--fm)">-' + v.gasto + '</td><td style="padding:8px;text-align:center;color:var(--gld);font-family:var(--fm);font-weight:700">' + (v.ganho-v.gasto) + '</td></tr>';
+      });
+      html += '</table>';
+    }
+    
+    // Últimas transações
+    html += '<div style="font-family:var(--fh);font-size:12px;color:var(--blu);letter-spacing:2px;margin:20px 0 12px">ÚLTIMAS TRANSAÇÕES</div>';
+    html += (logs||[]).slice(0,20).map(l => '<div style="display:flex;align-items:center;gap:10px;padding:8px;border-bottom:1px solid var(--border)"><span style="font-family:var(--fm);font-size:13px;font-weight:700;color:' + (l.valor>0?'var(--grn)':'var(--red)') + ';width:60px;text-align:right">' + (l.valor>0?'+':'')+l.valor + '</span><span style="font-size:12px;color:var(--text);flex:1">' + escHtml(l.descricao||l.tipo) + '</span><span style="font-size:10px;color:var(--text-d)">' + timeAgo(l.created_at) + '</span></div>').join('');
+    
+    el.innerHTML = html;
+  } else if (tab === 'config') {
+    const { data: configs } = await sb.from('admin_config').select('*').order('chave');
+    let html = '<div style="font-size:13px;color:var(--text-d);margin-bottom:16px">Configurações editáveis da plataforma. Mudanças são imediatas.</div>';
+    
+    // Config table
+    html += '<div style="background:var(--bg-2);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px">';
+    (configs||[]).forEach(c => {
+      html += '<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)"><div style="flex:1"><div style="font-size:13px;color:var(--text-b);font-weight:500">' + escHtml(c.chave) + '</div><div style="font-size:11px;color:var(--text-d)">' + escHtml(c.descricao||'') + '</div></div><input style="width:120px;background:var(--bg-1);border:1px solid var(--border);border-radius:6px;padding:6px 10px;color:var(--gld);font-family:var(--fm);font-size:13px;text-align:center;outline:none" value="' + escHtml(c.valor) + '" onchange="adminUpdateConfig(\'' + c.id + '\',this.value)"></div>';
+    });
+    html += '</div>';
+    
+    // Reset missions button
+    html += '<div style="background:var(--bg-2);border:1px solid var(--red);border-radius:12px;padding:20px">';
+    html += '<div style="font-family:var(--fh);font-size:13px;color:var(--red);letter-spacing:1px;margin-bottom:8px">⚠️ AÇÕES PERIGOSAS</div>';
+    html += '<div style="display:flex;gap:12px;flex-wrap:wrap">';
+    html += '<button style="padding:10px 20px;border-radius:8px;background:transparent;border:1px solid var(--red);color:var(--red);font-family:var(--fb);font-size:12px;font-weight:600;cursor:pointer" onclick="adminResetMissions()">🔄 Resetar Todas as Missões</button>';
+    html += '<button style="padding:10px 20px;border-radius:8px;background:transparent;border:1px solid var(--gld);color:var(--gld);font-family:var(--fb);font-size:12px;font-weight:600;cursor:pointer" onclick="adminBulkCredits()">💰 Dar Créditos em Massa</button>';
+    html += '</div></div>';
+    
+    el.innerHTML = html;
   }
 }
 
@@ -1621,6 +1737,45 @@ async function adminAddServer() {
 async function adminToggleCraft(srvId, val) { await sb.from('servidores').update({ craft_ativo: val }).eq('id', srvId); }
 async function adminToggleServer(srvId, val) { await sb.from('servidores').update({ ativo: val }).eq('id', srvId); }
 async function adminToggleFeature(fId, val) { await sb.from('features_config').update({ ativo: val }).eq('id', fId); adminTab('features'); }
+
+async function adminUpdateConfig(id, valor) {
+  await sb.from('admin_config').update({ valor, updated_at: new Date().toISOString() }).eq('id', id);
+}
+
+async function adminResetMissions() {
+  if (!confirm('⚠️ ATENÇÃO: Isso vai resetar o progresso de TODAS as missões de TODOS os usuários. Tem certeza?')) return;
+  if (!confirm('Última chance — confirma o reset?')) return;
+  const { data } = await sb.rpc('reset_all_missions');
+  alert('✅ Missões resetadas! ' + (data?.affected || 0) + ' registros afetados.');
+  adminTab('config');
+}
+
+async function adminBulkCredits() {
+  const qtd = parseInt(prompt('Quantos créditos dar para TODOS os usuários do servidor selecionado?'));
+  if (!qtd || qtd <= 0) return;
+  if (!confirm('Dar ' + qtd + ' créditos para todos os usuários?')) return;
+  
+  const srvId = adminSrv === 'all' ? null : adminSrv;
+  let query = sb.from('server_profiles').select('id, servidor_id');
+  if (srvId) query = query.eq('servidor_id', srvId);
+  const { data: profiles } = await query;
+  
+  if (!profiles || profiles.length === 0) { alert('Nenhum usuário encontrado'); return; }
+  
+  for (const p of profiles) {
+    await sb.from('server_profiles').update({ creditos: sb.rpc ? undefined : 0 }).eq('id', p.id);
+    // Use raw update since we can't do increment via JS client easily
+    await sb.rpc('spend_credits', { p_profile_id: p.id, p_amount: -qtd, p_tipo: 'admin_ajuste', p_desc: 'Créditos em massa pelo admin' }).catch(() => {});
+  }
+  // Simpler approach: direct SQL-like update
+  for (const p of profiles) {
+    const { data: curr } = await sb.from('server_profiles').select('creditos').eq('id', p.id).single();
+    await sb.from('server_profiles').update({ creditos: (curr?.creditos || 0) + qtd }).eq('id', p.id);
+    await sb.from('creditos_log').insert({ server_profile_id: p.id, servidor_id: p.servidor_id, tipo: 'admin_ajuste', valor: qtd, descricao: 'Créditos em massa pelo admin' });
+  }
+  
+  alert('✅ ' + qtd + ' créditos dados para ' + profiles.length + ' usuários!');
+}
 
 // ══════ NAV EXTENSIONS ══════
 const _navBase = nav;

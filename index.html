@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=1280">
 <title>CabalHub.online — A rede social do Cabal Online</title>
 <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Exo+2:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <style>
 :root{--bg-0:#06080c;--bg-1:#0b0f18;--bg-2:#111827;--bg-3:#1a2235;--border:#1e2a42;--text:#b8c5d9;--text-dim:#5a6a85;--text-bright:#e2e8f3;--accent:#f0883e;--accent-dim:#f0883e22;--blue:#4ea4f5;--green:#34d399;--red:#f47272;--gold:#fbbf24;--purple:#a78bfa;--font-head:'Chakra Petch',sans-serif;--font-body:'Exo 2',sans-serif;--font-mono:'JetBrains Mono',monospace}
 *{margin:0;padding:0;box-sizing:border-box}body{background:var(--bg-0);color:var(--text);font-family:var(--font-body);min-width:1000px}::selection{background:var(--accent);color:#000}::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:var(--bg-0)}::-webkit-scrollbar-thumb{background:var(--bg-3);border-radius:3px}
@@ -61,7 +61,7 @@
 <footer class="foot"><div class="ctn">CabalHub.online — A rede social da comunidade Cabal Online</div></footer>
 <script>
 const SB_URL='https://wnltwdbqtgpnaqdebzxc.supabase.co',SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndubHR3ZGJxdGdwbmFxZGVienhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyMTY1MjksImV4cCI6MjA5Mjc5MjUyOX0.MjR1PZgyRLxQxpOm-vKi7SUvryGLYanPRkQ2OKT9jS4';
-let sb;try{sb=window.supabase.createClient(SB_URL,SB_KEY)}catch(e){}
+let sb;try{const _sb=window.supabase||window.Supabase;sb=_sb.createClient(SB_URL,SB_KEY)}catch(e){console.error('Supabase init error:',e)}
 async function loginGoogle(){if(!sb){alert('Configure Supabase no .env');return}const{error}=await sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin+'/app.html'}});if(error)alert('Erro: '+error.message)}
 async function ck(){
   if(!sb)return;
