@@ -189,10 +189,13 @@
   <div class="ssel"><div class="sdot"></div><select id="serverSelect" onchange="trocarServidor(this.value)"></select></div>
   <div class="tright">
     <div class="nbtn" onclick="nav('notif')">🔔<div class="nbdg" id="notifCount" style="display:none">0</div></div>
-    <div class="tavt" id="topAvatar" style="position:relative">
-  <div id="avatarMenu" style="display:none;position:absolute;top:42px;right:0;background:var(--bg-2);border:1px solid var(--border);border-radius:10px;padding:6px;min-width:140px;z-index:200">
-    <div style="padding:8px 12px;border-radius:6px;cursor:pointer;font-size:12px;color:var(--text)" onmouseover="this.style.background='var(--bg-3)'" onmouseout="this.style.background=''" onclick="nav('perfil')">👤 Meu Perfil</div>
-    <div style="padding:8px 12px;border-radius:6px;cursor:pointer;font-size:12px;color:var(--red)" onmouseover="this.style.background='var(--bg-3)'" onmouseout="this.style.background=''" onclick="logout()">🚪 Sair</div>
+    <div style="position:relative">
+      <div class="tavt" id="topAvatar" onclick="toggleAvatarMenu()"></div>
+      <div id="avatarMenu" style="display:none;position:absolute;top:42px;right:0;background:var(--bg-2);border:1px solid var(--border);border-radius:10px;padding:6px;min-width:140px;z-index:200">
+        <div style="padding:8px 12px;border-radius:6px;cursor:pointer;font-size:12px;color:var(--text)" onmouseover="this.style.background='var(--bg-3)'" onmouseout="this.style.background=''" onclick="nav('perfil')">👤 Meu Perfil</div>
+        <div style="padding:8px 12px;border-radius:6px;cursor:pointer;font-size:12px;color:var(--red)" onmouseover="this.style.background='var(--bg-3)'" onmouseout="this.style.background=''" onclick="logout()">🚪 Sair</div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -425,7 +428,6 @@
     <div style="flex:1;padding:24px;display:flex;flex-direction:column" id="lmDetails"></div>
   </div>
 </div>
-</div>
 
 <script>
 // ══════ CONFIG ══════
@@ -437,10 +439,14 @@ let sb, user, profile, servidor, servidores = [], cropper;
 
 document.addEventListener('click', (e) => {
   const menu = document.getElementById('avatarMenu');
-  const av = document.getElementById('topAvatar');
-  if (av && av.contains(e.target)) { menu.style.display = menu.style.display === 'none' ? 'block' : 'none'; }
-  else if (menu) { menu.style.display = 'none'; }
+  if (!menu) return;
+  const wrapper = menu.parentElement;
+  if (wrapper && !wrapper.contains(e.target)) { menu.style.display = 'none'; }
 });
+function toggleAvatarMenu() {
+  const menu = document.getElementById('avatarMenu');
+  if (menu) menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+}
 async function logout() {
   if (sb) await sb.auth.signOut();
   localStorage.removeItem('cabalhub_server');
@@ -752,9 +758,10 @@ async function addComment(postId) {
 
 async function registerView(postId) {
   if (!sb || !profile) return;
-  try {
-    await sb.from('views').insert({ post_id: postId, server_profile_id: profile.id });
-  } catch(e) {} // Ignore duplicate
+  await sb.from('views').upsert(
+    { post_id: postId, server_profile_id: profile.id },
+    { onConflict: 'post_id,server_profile_id', ignoreDuplicates: true }
+  ).then(() => {}).catch(() => {});
 }
 
 function copyNick(nick) {
@@ -1289,61 +1296,34 @@ function pickAvatar() {
   input.onchange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-
     const reader = new FileReader();
     reader.onload = (ev) => {
       document.getElementById('cropImg').src = ev.target.result;
       document.getElementById('cropModal').classList.add('on');
-
       setTimeout(() => {
         if (cropper) cropper.destroy();
-
         cropper = new Cropper(document.getElementById('cropImg'), {
-          aspectRatio: 1,
-          viewMode: 1,
-          autoCropArea: 0.9
+          aspectRatio: 1, viewMode: 1, autoCropArea: 0.9
         });
-
         // Override confirmCrop to save as avatar
         window._cropCallback = async (blob) => {
           const fname = 'avatar_' + profile.id + '_' + Date.now() + '.jpg';
-
-          const { error } = await sb.storage
-            .from('images')
-            .upload(fname, blob, {
-              contentType: 'image/jpeg',
-              upsert: false
-            });
-
-          if (error) {
-            console.error('Avatar upload error:', error);
-            alert('Erro ao enviar avatar: ' + error.message);
-            return;
+const { error } = await sb.storage.from('images').upload(fname, blob, { contentType: 'image/jpeg', upsert: false });
+if (error) { console.error('Avatar upload error:', error); alert('Erro ao enviar avatar: ' + error.message); return; }
+const { data } = sb.storage.from('images').getPublicUrl(fname);
+            await sb.from('server_profiles').update({ avatar_url: data.publicUrl }).eq('id', profile.id);
+            profile.avatar_url = data.publicUrl;
+            updateUI();
+            loadProfile();
           }
-
-          // 🔥 CORREÇÃO AQUI
-          const urlData = sb.storage.from('images').getPublicUrl(fname);
-          const publicUrl = urlData.data.publicUrl;
-
-          await sb
-            .from('server_profiles')
-            .update({ avatar_url: publicUrl })
-            .eq('id', profile.id);
-
-          profile.avatar_url = publicUrl;
-
-          updateUI();
-          loadProfile();
         };
-
       }, 100);
     };
-
     reader.readAsDataURL(file);
   };
-
   input.click();
 }
+
 // Override nav to also load profile/loja/streamers
 const _origNav = nav;
 nav = function(page) {
