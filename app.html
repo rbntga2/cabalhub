@@ -1222,108 +1222,74 @@ async function loadProfile() {
   
   profTab('notif');
 }
-
-async function profTab(tab) {
-  document.querySelectorAll('.ptab').forEach(t => t.classList.remove('on'));
-  document.querySelectorAll('.ptab').forEach(t => { if (t.textContent.toLowerCase().includes(tab.substring(0,4))) t.classList.add('on'); });
-  const el = document.getElementById('profContent');
-  
-  if (tab === 'notif') {
-    if (!sb) { el.innerHTML = '<div class="empty">Configure Supabase</div>'; return; }
-    const { data } = await sb.from('notifications')
-      .select('*, actor:actor_profile_id(nick)')
-      .eq('server_profile_id', profile.id)
-      .order('created_at', { ascending: false })
-      .limit(30);
-    
-    if (!data || data.length === 0) { el.innerHTML = '<div class="empty">Nenhuma notificação ainda</div>'; return; }
-    
-    const icons = { like: '❤️', comment: '💬', spoiler: '✦', invite: '👥', mission: '🎯', system: '✅', mural: '📌' };
-    const colors = { like: '#f4727222', comment: 'var(--blu-d)', spoiler: '#a78bfa22', invite: 'var(--acc-d)', mission: 'var(--grn-d)', system: 'var(--grn-d)', mural: 'var(--blu-d)' };
-    
-    el.innerHTML = data.map(n => 
-      '<div class="noti' + (n.lido ? '' : ' unr') + '"><div class="noti-ic" style="background:' + (colors[n.tipo] || 'var(--bg-3)') + '">' + (icons[n.tipo] || '🔔') + '</div><div class="noti-b"><div class="noti-tx">' + escHtml(n.conteudo || '') + '</div><div class="noti-tm">' + timeAgo(n.created_at) + '</div></div></div>'
-    ).join('');
-  } else if (tab === 'convites') {
-    el.innerHTML = '<div style="background:var(--bg-2);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px">' +
-      '<div style="font-family:var(--fh);font-size:14px;color:var(--acc);letter-spacing:1px;margin-bottom:4px">SEU LINK DE CONVITE</div>' +
-      '<div style="font-size:12px;color:var(--text-d)">Cada player que criar conta pelo seu link te dá <strong style="color:var(--gld)">50 créditos</strong></div>' +
-      '<div style="display:flex;gap:8px;margin-top:12px"><div style="flex:1;background:var(--bg-1);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--acc);font-family:var(--fm);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + location.origin + '?ref=' + (profile.nick || '') + '</div><button class="btn-p btn-pa" onclick="navigator.clipboard.writeText(\'' + location.origin + '?ref=' + (profile.nick || '') + '\')">📋 Copiar</button></div></div>';
-  } else if (tab === 'missoes') {
-    if (!sb) return;
-    const { data: missoes } = await sb.from('missoes').select('*').eq('ativo', true);
-    const { data: progresso } = await sb.from('missoes_progresso').select('*').eq('server_profile_id', profile.id);
-    const progMap = {};
-    (progresso || []).forEach(p => { progMap[p.missao_id] = p; });
-    
-    if (!missoes || missoes.length === 0) { el.innerHTML = '<div class="empty">Nenhuma missão disponível</div>'; return; }
-    
-    el.innerHTML = missoes.map(m => {
-      const p = progMap[m.id] || { progresso: 0, completa: false };
-      const pct = Math.min(100, Math.round(p.progresso / m.meta * 100));
-      const barColor = p.completa ? 'var(--grn)' : 'var(--acc)';
-      return '<div class="mcard' + (p.completa ? ' done' : '') + '"><div class="mcard-ic" style="background:var(--acc-d)">🎯</div><div class="mcard-info"><div class="mcard-t">' + escHtml(m.titulo) + '</div><div class="mcard-d">' + escHtml(m.descricao || '') + '</div><div class="mbar"><div class="mbar-f" style="width:' + pct + '%;background:' + barColor + '"></div></div><div style="font-size:11px;color:var(--text-d);margin-top:4px">' + (p.completa ? '✅ Completa!' : p.progresso + ' / ' + m.meta) + '</div></div><div class="mcard-rw"><div class="v">' + m.recompensa_creditos + '</div><div class="l">créditos</div></div></div>';
-    }).join('');
-  } else if (tab === 'creditos') {
-    el.innerHTML = '<div style="background:var(--bg-2);border:1px solid var(--border);border-radius:12px;padding:24px;text-align:center">' +
-      '<div style="font-family:var(--fh);font-size:12px;color:var(--text-d);letter-spacing:2px;margin-bottom:8px">SALDO DE CRÉDITOS</div>' +
-      '<div style="font-family:var(--fm);font-size:36px;font-weight:700;color:var(--gld)">' + (profile.creditos || 0) + ' ⓒ</div>' +
-      '<div style="font-size:12px;color:var(--text-d);margin-top:8px">Ganhe créditos convidando amigos e completando missões</div></div>';
-  } else if (tab === 'posts') {
-    if (!sb) return;
-    const { data } = await sb.from('posts')
-      .select('*')
-      .eq('server_profile_id', profile.id)
-      .in('status', ['ativo','congelado'])
-      .order('created_at', { ascending: false })
-      .limit(20);
-    
-    if (!data || data.length === 0) { el.innerHTML = '<div class="empty">Nenhum post ainda</div>'; return; }
-    
-    el.innerHTML = data.map(p => {
-      const icon = { feed: '◈', media: '◧', video: '▶', enquete: '◫', anuncio: '◆', mural: '📌' }[p.tipo] || '◈';
-      return '<div style="background:var(--bg-2);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:10px;cursor:pointer;display:flex;gap:14px" onclick="nav(\'feed\')">' +
-        '<div style="width:60px;height:60px;border-radius:8px;background:var(--bg-4);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:20px;overflow:hidden">' + (p.imagem_url ? '<img src="' + p.imagem_url + '" style="width:100%;height:100%;object-fit:cover">' : icon) + '</div>' +
-        '<div style="flex:1;min-width:0"><div style="font-size:10px;color:var(--text-d);letter-spacing:1px;text-transform:uppercase">' + icon + ' ' + p.tipo + '</div><div style="font-size:13px;color:var(--text-b);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escHtml(p.conteudo || '') + '</div><div style="display:flex;gap:12px;margin-top:8px;font-size:11px;color:var(--text-d);font-family:var(--fm)"><span>❤️ ' + p.likes_count + '</span><span>💬 ' + p.comments_count + '</span><span>👁 ' + fmtNum(p.views_count) + '</span></div></div></div>';
-    }).join('');
-  }
-}
-
 function pickAvatar() {
   const input = document.createElement('input');
   input.type = 'file';
   input.accept = 'image/*';
+
   input.onchange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
+
     const reader = new FileReader();
+
     reader.onload = (ev) => {
       document.getElementById('cropImg').src = ev.target.result;
       document.getElementById('cropModal').classList.add('on');
+
       setTimeout(() => {
         if (cropper) cropper.destroy();
+
         cropper = new Cropper(document.getElementById('cropImg'), {
-          aspectRatio: 1, viewMode: 1, autoCropArea: 0.9
+          aspectRatio: 1,
+          viewMode: 1,
+          autoCropArea: 0.9
         });
-        // Override confirmCrop to save as avatar
+
+        // CALLBACK CORRIGIDO
         window._cropCallback = async (blob) => {
-          const fname = 'avatar_' + profile.id + '_' + Date.now() + '.jpg';
-const { error } = await sb.storage.from('images').upload(fname, blob, { contentType: 'image/jpeg', upsert: false });
-if (error) { console.error('Avatar upload error:', error); alert('Erro ao enviar avatar: ' + error.message); return; }
-const { data } = sb.storage.from('images').getPublicUrl(fname);
-            await sb.from('server_profiles').update({ avatar_url: data.publicUrl }).eq('id', profile.id);
-            profile.avatar_url = data.publicUrl;
+          try {
+            const fname = 'avatar_' + profile.id + '_' + Date.now() + '.jpg';
+
+            const uploadRes = await sb.storage
+              .from('images')
+              .upload(fname, blob, {
+                contentType: 'image/jpeg',
+                upsert: false
+              });
+
+            if (uploadRes.error) {
+              console.error('Avatar upload error:', uploadRes.error);
+              alert('Erro ao enviar avatar: ' + uploadRes.error.message);
+              return;
+            }
+
+            const pub = sb.storage.from('images').getPublicUrl(fname);
+            const publicUrl = pub.data.publicUrl;
+
+            await sb
+              .from('server_profiles')
+              .update({ avatar_url: publicUrl })
+              .eq('id', profile.id);
+
+            profile.avatar_url = publicUrl;
+
             updateUI();
             loadProfile();
+
+          } catch (err) {
+            console.error('Erro geral avatar:', err);
           }
         };
+
       }, 100);
     };
+
     reader.readAsDataURL(file);
   };
+
   input.click();
 }
-
 // Override nav to also load profile/loja/streamers
 const _origNav = nav;
 nav = function(page) {
