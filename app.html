@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=1280">
-<title>CabalHub.online</title>
+<title>SocialPlay.online</title>
 <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Exo+2:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 <script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
@@ -180,7 +180,7 @@
 
 <!-- ═══ TOPBAR ═══ -->
 <div class="top">
-  <div class="logo" onclick="nav('feed')">CABALHUB<span>.ONLINE</span></div>
+  <div class="logo" onclick="nav('feed')">SOCIALPLAY<span>.ONLINE</span></div>
   <div class="tnav">
     <div class="tl on" data-p="feed" onclick="navTop('feed')">HOME</div>
     <div class="tl" data-p="loja" onclick="navTop('loja')">LOJA</div>
@@ -245,6 +245,7 @@
       <div class="comp-top">
         <div class="comp-av" id="compAvatar"></div>
         <textarea class="comp-in" id="compText" placeholder="O que está acontecendo?" oninput="autoGrow(this)"></textarea>
+      <span class="tip" data-tip="📝 Escreva sua mensagem. Use os botões abaixo pra: 📷 adicionar imagem, 🎬 colar link de vídeo, 📊 criar enquete, ◆ anunciar item, ✦ esconder texto com $spoiler."><em class="tip-i" style="position:absolute;top:14px;right:14px">?</em></span>
       </div>
       <div class="comp-preview" id="compPreview" style="display:none"></div>
       <!-- Enquete fields -->
@@ -396,8 +397,8 @@
   <div class="cp-modal">
     <h3>CRIAR PERFIL</h3>
     <p style="text-align:center;color:var(--text-d);font-size:13px;margin-bottom:16px">Crie seu perfil no servidor <strong id="cpServer" style="color:var(--acc)"></strong></p>
-    <div class="fr"><label>Nick</label><input class="fi" id="cpNick" placeholder="Seu nick neste servidor" maxlength="20"></div>
-    <div class="fr"><label>Bio (opcional)</label><input class="fi" id="cpBio" placeholder="Uma frase sobre você"></div>
+    <div class="fr"><label>Nick no Jogo</label><input class="fi" id="cpNick" placeholder="Seu nick no jogo (ex: MagaLu)" maxlength="20"></div>
+    <div class="fr"><label>Descrição do Perfil (opcional)</label><input class="fi" id="cpBio" placeholder="Ex: Crafter profissional, Guild Leader..."></div>
     <div id="cpAlert" class="al"></div>
     <div style="display:flex;gap:8px;margin-top:16px">
       <button class="btn-ok" style="flex:1;padding:12px;border-radius:8px;font-family:var(--fb);font-size:14px;font-weight:600;cursor:pointer;border:none" onclick="criarPerfil()">Criar Perfil</button>
@@ -449,8 +450,8 @@ function toggleAvatarMenu() {
 }
 async function logout() {
   if (sb) await sb.auth.signOut();
-  localStorage.removeItem('cabalhub_server');
-  localStorage.removeItem('cabalhub_last_server');
+  localStorage.removeItem('sp_server');
+  localStorage.removeItem('sp_last_server');
   location.href = '/index.html';
 }
 let compImgBlob = null, compVideoUrl = null, compSpoiler = null;
@@ -465,7 +466,7 @@ async function init() {
     if (!session) { location.href = '/index.html'; return; }
     user = session.user;
     await loadServidores();
-    const savedSrv = localStorage.getItem('cabalhub_server');
+    const savedSrv = localStorage.getItem('sp_server');
     if (savedSrv && servidores.find(s => s.id === savedSrv)) {
       await setServidor(savedSrv);
     } else if (servidores.length > 0) {
@@ -497,7 +498,7 @@ async function loadServidores() {
 async function setServidor(srvId) {
   servidor = servidores.find(s => s.id === srvId);
   if (!servidor) return;
-  localStorage.setItem('cabalhub_server', srvId);
+  localStorage.setItem('sp_server', srvId);
   document.getElementById('serverSelect').value = srvId;
   
   try {
@@ -518,13 +519,13 @@ async function setServidor(srvId) {
     updateUI();
     
     // Log migration (non-blocking, ignore errors)
-    const lastSrv = localStorage.getItem('cabalhub_last_server');
+    const lastSrv = localStorage.getItem('sp_last_server');
     if (lastSrv && lastSrv !== srvId) {
       sb.from('server_migrations').insert({
         user_id: user.id, from_servidor_id: lastSrv, to_servidor_id: srvId
       }).then(() => {}).catch(() => {});
     }
-    localStorage.setItem('cabalhub_last_server', srvId);
+    localStorage.setItem('sp_last_server', srvId);
     
     loadFeed();
     loadQuickAds();
@@ -678,8 +679,19 @@ async function toggleLike(postId) {
     await sb.from('likes').delete().eq('id', existing.id);
   } else {
     await sb.from('likes').insert({ post_id: postId, server_profile_id: profile.id });
+    // Create notification for post owner
+    const { data: post } = await sb.from('posts').select('server_profile_id, conteudo').eq('id', postId).single();
+    if (post && post.server_profile_id !== profile.id) {
+      sb.from('notifications').insert({
+        server_profile_id: post.server_profile_id,
+        tipo: 'like',
+        post_id: postId,
+        actor_profile_id: profile.id,
+        conteudo: profile.nick + ' curtiu seu post'
+      }).then(()=>{}).catch(()=>{});
+    }
   }
-  loadFeed(); // Simple refresh
+  loadFeed();
 }
 
 async function toggleComments(postId) {
@@ -704,7 +716,7 @@ async function loadComments(postId) {
   
   if (!comments || comments.length === 0) {
     el.innerHTML = '<div class="comh"><span>Comentários</span><span class="t">0</span></div>' +
-      '<div class="com-input"><input placeholder="Escrever comentário..." id="ci-'+postId+'"><button onclick="addComment(\''+postId+'\')">Enviar</button></div>';
+      '<div class="com-input"><input placeholder="Comentar... (pra oferta privada: $spoiler: valor)" id="ci-'+postId+'"><button onclick="addComment(\''+postId+'\')">Enviar</button></div>';
     return;
   }
   
@@ -719,7 +731,7 @@ async function loadComments(postId) {
     html += '<div class="vm" onclick="showAllComments(\''+postId+'\')">Ver mais '+(total - visible)+' comentários...</div>';
   }
   
-  html += '<div class="com-input"><input placeholder="Escrever comentário..." id="ci-'+postId+'" onkeydown="if(event.key===\'Enter\')addComment(\''+postId+'\')"><button onclick="addComment(\''+postId+'\')">Enviar</button></div>';
+  html += '<div class="com-input"><input placeholder="Comentar... (pra oferta privada: $spoiler: valor)" id="ci-'+postId+'" onkeydown="if(event.key===\'Enter\')addComment(\''+postId+'\')"><button onclick="addComment(\''+postId+'\')">Enviar</button></div>';
   
   el.innerHTML = html;
 }
@@ -742,15 +754,42 @@ function renderComment(c, postId) {
 
 async function addComment(postId) {
   if (!sb || !profile) return;
-  const input = document.getElementById('ci-' + postId);
-  const text = input.value.trim();
+  const input = document.getElementById('ci-' + postId) || document.getElementById('lci-' + postId);
+  if (!input) return;
+  let text = input.value.trim();
   if (!text) return;
   
-  await sb.from('comments').insert({
+  // Check for $spoiler syntax
+  let isSpoiler = false;
+  let spoilerContent = null;
+  const spoilerMatch = text.match(/\$spoiler\s*[:=]?\s*(.+)/i);
+  if (spoilerMatch) {
+    isSpoiler = true;
+    spoilerContent = spoilerMatch[1].trim();
+    text = text.replace(spoilerMatch[0], '').trim() || 'Oferta via $spoiler';
+  }
+  
+  const { error } = await sb.from('comments').insert({
     post_id: postId,
     server_profile_id: profile.id,
-    conteudo: text
+    conteudo: text,
+    is_spoiler: isSpoiler,
+    spoiler_conteudo: spoilerContent
   });
+  
+  if (!error) {
+    // Create notification for post owner
+    const { data: post } = await sb.from('posts').select('server_profile_id').eq('id', postId).single();
+    if (post && post.server_profile_id !== profile.id) {
+      sb.from('notifications').insert({
+        server_profile_id: post.server_profile_id,
+        tipo: isSpoiler ? 'spoiler' : 'comment',
+        post_id: postId,
+        actor_profile_id: profile.id,
+        conteudo: profile.nick + (isSpoiler ? ' enviou uma oferta $spoiler no seu anúncio' : ' comentou: ' + text.substring(0, 50))
+      }).then(()=>{}).catch(()=>{});
+    }
+  }
   
   input.value = '';
   await loadComments(postId);
@@ -982,7 +1021,7 @@ async function criarPerfil() {
 document.getElementById('createProfileModal').classList.remove('on');
 
 // Processar referral
-const refNick = localStorage.getItem('cabalhub_ref');
+const refNick = localStorage.getItem('sp_ref');
 if (refNick && refNick !== data.nick) {
   try {
     const { data: rp } = await sb.from('server_profiles').select('id').eq('nick', refNick).eq('servidor_id', servidor.id).maybeSingle();
@@ -990,7 +1029,7 @@ if (refNick && refNick !== data.nick) {
       await sb.from('pending_referrals').insert({ referrer_profile_id: rp.id, referred_user_id: user.id, servidor_id: servidor.id });
     }
   } catch(e) { console.log('Ref:', e); }
-  localStorage.removeItem('cabalhub_ref');
+  localStorage.removeItem('sp_ref');
 }
   updateUI();
   loadFeed();
@@ -1154,7 +1193,7 @@ async function loadLojaComments(postId) {
   
   let html = '<div style="font-size:12px;color:var(--text-d);margin-bottom:10px">Comentários <span style="font-family:var(--fm);color:var(--acc)">' + comments.length + '</span></div>';
   comments.forEach(c => { html += renderComment(c, postId); });
-  html += '<div class="com-input"><input placeholder="Escrever comentário..." id="lci-' + postId + '" onkeydown="if(event.key===\'Enter\')addComment(\'' + postId + '\')"><button onclick="addComment(\'' + postId + '\')">Enviar</button></div>';
+  html += '<div class="com-input"><input placeholder="Comentar... (pra oferta privada: $spoiler: valor)" id="lci-' + postId + '" onkeydown="if(event.key===\'Enter\')addComment(\'' + postId + '\')"><button onclick="addComment(\'' + postId + '\')">Enviar</button></div>';
   el.innerHTML = html;
 }
 
@@ -1225,118 +1264,50 @@ async function loadProfile() {
 
 async function profTab(tab) {
   document.querySelectorAll('.ptab').forEach(t => t.classList.remove('on'));
-  document.querySelectorAll('.ptab').forEach(t => { if (t.textContent.toLowerCase().includes(tab.substring(0,4))) t.classList.add('on'); });
+  document.querySelectorAll('.ptab').forEach(t => { if(t.textContent.toLowerCase().includes(tab.substring(0,4))) t.classList.add('on'); });
   const el = document.getElementById('profContent');
   if (!el) return;
   
   if (tab === 'notif') {
     if (!sb || !profile) { el.innerHTML = '<div class="empty">Carregando...</div>'; return; }
-    const { data } = await sb.from('notifications')
-      .select('*, actor:actor_profile_id(nick)')
-      .eq('server_profile_id', profile.id)
-      .order('created_at', { ascending: false })
-      .limit(30);
-    
+    const { data } = await sb.from('notifications').select('*').eq('server_profile_id', profile.id).order('created_at', { ascending: false }).limit(30);
     if (!data || data.length === 0) { el.innerHTML = '<div class="empty">Nenhuma notificação ainda</div>'; return; }
-    
-    const icons = { like: '❤️', comment: '💬', spoiler: '✦', invite: '👥', mission: '🎯', system: '✅', mural: '📌' };
-    const colors = { like: '#f4727222', comment: 'var(--blu-d)', spoiler: '#a78bfa22', invite: 'var(--acc-d)', mission: 'var(--grn-d)', system: 'var(--grn-d)', mural: 'var(--blu-d)' };
-    
-    el.innerHTML = data.map(n => 
-      '<div class="noti' + (n.lido ? '' : ' unr') + '"><div class="noti-ic" style="background:' + (colors[n.tipo] || 'var(--bg-3)') + '">' + (icons[n.tipo] || '🔔') + '</div><div class="noti-b"><div class="noti-tx">' + escHtml(n.conteudo || '') + '</div><div class="noti-tm">' + timeAgo(n.created_at) + '</div></div></div>'
-    ).join('');
-    
-  } else if (tab === 'convites' || tab === 'conv') {
-    const refLink = location.origin + '?ref=' + encodeURIComponent(profile.nick || '');
-    
-    // Count referrals
-    let refCount = 0, refCredits = 0;
-    if (sb) {
-      const { data: refs } = await sb.from('referrals').select('*').eq('referrer_profile_id', profile.id);
-      refCount = refs ? refs.length : 0;
-      refCredits = refCount * 50;
-    }
-    
-    el.innerHTML = '<div style="background:var(--bg-2);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px">' +
-      '<div style="font-family:var(--fh);font-size:14px;color:var(--acc);letter-spacing:1px;margin-bottom:4px">SEU LINK DE CONVITE</div>' +
-      '<div style="font-size:12px;color:var(--text-d)">Cada player que criar conta pelo seu link dá <strong style="color:var(--gld)">50 créditos</strong> pra você e <strong style="color:var(--gld)">50 créditos</strong> pra ele!</div>' +
-      '<div style="display:flex;gap:8px;margin-top:12px"><div style="flex:1;background:var(--bg-1);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--acc);font-family:var(--fm);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;user-select:all" id="refLinkText">' + refLink + '</div><button class="btn-p btn-pa" onclick="navigator.clipboard.writeText(\'' + refLink + '\');this.textContent=\'✅ Copiado!\';setTimeout(()=>this.textContent=\'📋 Copiar\',2000)">📋 Copiar</button></div>' +
-      '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:16px">' +
-      '<div style="background:var(--bg-1);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center"><div style="font-family:var(--fm);font-size:22px;font-weight:700;color:var(--acc)">' + refCount + '</div><div style="font-size:11px;color:var(--text-d)">Convidados</div></div>' +
-      '<div style="background:var(--bg-1);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center"><div style="font-family:var(--fm);font-size:22px;font-weight:700;color:var(--gld)">' + refCredits + '</div><div style="font-size:11px;color:var(--text-d)">Créditos ganhos</div></div>' +
-      '<div style="background:var(--bg-1);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center"><div style="font-family:var(--fm);font-size:22px;font-weight:700;color:var(--grn)">' + (profile.creditos || 0) + '</div><div style="font-size:11px;color:var(--text-d)">Saldo total</div></div></div></div>' +
-      '<div style="background:var(--bg-2);border:1px solid var(--border);border-radius:12px;padding:16px"><div style="font-family:var(--fh);font-size:12px;color:var(--text-d);letter-spacing:2px;margin-bottom:8px">COMO USAR</div>' +
-      '<div style="font-size:13px;color:var(--text);line-height:1.8">1. Copie o link acima<br>2. Envie para amigos no Discord, WhatsApp, ou no chat do jogo<br>3. Quando eles criarem conta, vocês dois ganham 50 créditos<br>4. Use créditos para promover anúncios na loja (200ⓒ / 24h)</div></div>';
-    
-  } else if (tab === 'missoes' || tab === 'miss') {
-    if (!sb || !profile) return;
-    const { data: missoes } = await sb.from('missoes').select('*').eq('ativo', true);
-    const { data: progresso } = await sb.from('missoes_progresso').select('*').eq('server_profile_id', profile.id);
-    const progMap = {};
-    (progresso || []).forEach(p => { progMap[p.missao_id] = p; });
-    
-    if (!missoes || missoes.length === 0) { el.innerHTML = '<div class="empty">Nenhuma missão disponível</div>'; return; }
-    
-    el.innerHTML = missoes.map(m => {
-      const p = progMap[m.id] || { progresso: 0, completa: false };
-      const pct = Math.min(100, Math.round(p.progresso / m.meta * 100));
-      const barColor = p.completa ? 'var(--grn)' : 'var(--acc)';
-      return '<div class="mcard"><div class="mcard-ic" style="background:var(--acc-d)">🎯</div><div class="mcard-info"><div class="mcard-t">' + escHtml(m.titulo) + '</div><div class="mcard-d">' + escHtml(m.descricao || '') + '</div><div class="mbar"><div class="mbar-f" style="width:' + pct + '%;background:' + barColor + '"></div></div><div style="font-size:11px;color:var(--text-d);margin-top:4px">' + (p.completa ? '✅ Completa!' : p.progresso + ' / ' + m.meta) + '</div></div><div class="mcard-rw"><div class="v">' + m.recompensa_creditos + '</div><div class="l">créditos</div></div></div>';
+    const icons = {like:'❤️',comment:'💬',spoiler:'✦',invite:'👥',mission:'🎯',system:'✅',mural:'📌'};
+    const colors = {like:'#f4727222',comment:'var(--blu-d)',spoiler:'#a78bfa22',invite:'var(--acc-d)',mission:'var(--grn-d)',system:'var(--grn-d)',mural:'var(--blu-d)'};
+    el.innerHTML = data.map(n => {
+      const click = n.post_id ? ' onclick="window.location.href=\'/post/'+n.post_id+'\'" style="cursor:pointer"' : '';
+      return '<div class="noti'+(n.lido?'':' unr')+'"'+click+'><div class="noti-ic" style="background:'+(colors[n.tipo]||'var(--bg-3)')+'">'+( icons[n.tipo]||'🔔')+'</div><div class="noti-b"><div class="noti-tx">'+escHtml(n.conteudo||'')+'</div><div class="noti-tm">'+timeAgo(n.created_at)+'</div></div></div>';
     }).join('');
-    
-  } else if (tab === 'creditos' || tab === 'cred') {
-    el.innerHTML = '<div style="background:var(--bg-2);border:1px solid var(--border);border-radius:12px;padding:24px;text-align:center;margin-bottom:16px">' +
-      '<div style="font-family:var(--fh);font-size:12px;color:var(--text-d);letter-spacing:2px;margin-bottom:8px">SALDO DE CRÉDITOS</div>' +
-      '<div style="font-family:var(--fm);font-size:36px;font-weight:700;color:var(--gld)">' + (profile.creditos || 0) + ' ⓒ</div>' +
-      '<div style="font-size:12px;color:var(--text-d);margin-top:8px">Ganhe créditos convidando amigos e completando missões</div></div>';
-    
-    // Credit log
-    if (sb) {
-      const { data: logs } = await sb.from('creditos_log').select('*').eq('server_profile_id', profile.id).order('created_at', { ascending: false }).limit(20);
-      if (logs && logs.length > 0) {
-        el.innerHTML += '<div style="font-family:var(--fh);font-size:12px;color:var(--blu);letter-spacing:2px;margin-bottom:10px">HISTÓRICO</div>' +
-          logs.map(l => '<div style="display:flex;align-items:center;gap:10px;padding:8px;border-bottom:1px solid var(--border)"><span style="font-family:var(--fm);font-size:13px;font-weight:700;color:' + (l.valor>0?'var(--grn)':'var(--red)') + ';width:60px;text-align:right">' + (l.valor>0?'+':'') + l.valor + '</span><span style="font-size:12px;color:var(--text);flex:1">' + escHtml(l.descricao||l.tipo) + '</span><span style="font-size:10px;color:var(--text-d)">' + timeAgo(l.created_at) + '</span></div>').join('');
-      }
-    }
-    
-  } else if (tab === 'posts') {
-    if (!sb || !profile) return;
-    const { data } = await sb.from('posts').select('*').eq('server_profile_id', profile.id).in('status', ['ativo','congelado']).order('created_at', { ascending: false }).limit(20);
-    
-    if (!data || data.length === 0) { el.innerHTML = '<div class="empty">Nenhum post ainda</div>'; return; }
-    
-    // Sub-tabs
-    const tipos = { feed:0, media:0, video:0, enquete:0, anuncio:0 };
-    data.forEach(p => { if (tipos[p.tipo] !== undefined) tipos[p.tipo]++; else tipos.feed++; });
-    
-    let html = '<div style="display:flex;gap:4px;margin-bottom:16px;flex-wrap:wrap">';
-    html += '<div class="ltab on" onclick="filterMyPosts(null)">◈ Todos <span class="ltc">' + data.length + '</span></div>';
-    Object.entries(tipos).forEach(([t,c]) => {
-      if (c > 0) {
-        const icons = {feed:'◈',media:'◧',video:'▶',enquete:'◫',anuncio:'◆'};
-        html += '<div class="ltab" onclick="filterMyPosts(\'' + t + '\')">' + (icons[t]||'') + ' ' + t.charAt(0).toUpperCase()+t.slice(1) + ' <span class="ltc">' + c + '</span></div>';
-      }
+    // Mark as read
+    sb.from('notifications').update({lido:true}).eq('server_profile_id',profile.id).eq('lido',false).then(()=>{}).catch(()=>{});
+  } else if (tab==='convites'||tab==='conv') {
+    const refLink = location.origin+'?ref='+encodeURIComponent(profile.nick||'');
+    let refCount=0;
+    if(sb){const{data:refs}=await sb.from('referrals').select('id').eq('referrer_profile_id',profile.id);refCount=refs?refs.length:0;}
+    el.innerHTML='<div style="background:var(--bg-2);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px"><div style="font-family:var(--fh);font-size:14px;color:var(--acc);letter-spacing:1px;margin-bottom:4px">SEU LINK DE CONVITE</div><div style="font-size:12px;color:var(--text-d)">Cada player que criar conta pelo seu link dá <strong style="color:var(--gld)">50 créditos</strong> pra você e <strong style="color:var(--gld)">50 créditos</strong> pra ele!</div><div style="display:flex;gap:8px;margin-top:12px"><div style="flex:1;background:var(--bg-1);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--acc);font-family:var(--fm);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;user-select:all">'+refLink+'</div><button class="btn-p btn-pa" onclick="navigator.clipboard.writeText(\''+refLink+'\');this.textContent=\'✅ Copiado!\';setTimeout(()=>this.textContent=\'📋 Copiar\',2000)">📋 Copiar</button></div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:16px"><div style="background:var(--bg-1);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center"><div style="font-family:var(--fm);font-size:22px;font-weight:700;color:var(--acc)">'+refCount+'</div><div style="font-size:11px;color:var(--text-d)">Convidados</div></div><div style="background:var(--bg-1);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center"><div style="font-family:var(--fm);font-size:22px;font-weight:700;color:var(--gld)">'+(refCount*50)+'</div><div style="font-size:11px;color:var(--text-d)">Créditos ganhos</div></div><div style="background:var(--bg-1);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center"><div style="font-family:var(--fm);font-size:22px;font-weight:700;color:var(--grn)">'+(profile.creditos||0)+'</div><div style="font-size:11px;color:var(--text-d)">Saldo total</div></div></div></div><div style="background:var(--bg-2);border:1px solid var(--border);border-radius:12px;padding:16px"><div style="font-family:var(--fh);font-size:12px;color:var(--text-d);letter-spacing:2px;margin-bottom:8px">COMO USAR</div><div style="font-size:13px;color:var(--text);line-height:1.8">1. Copie o link acima<br>2. Envie para amigos no Discord, WhatsApp ou chat do jogo<br>3. Quando criarem conta, vocês dois ganham 50 créditos<br>4. Use créditos para promover anúncios (200ⓒ / 24h)</div></div>';
+  } else if (tab==='missoes'||tab==='miss') {
+    if(!sb||!profile)return;
+    const{data:missoes}=await sb.from('missoes').select('*').eq('ativo',true);
+    const{data:prog}=await sb.from('missoes_progresso').select('*').eq('server_profile_id',profile.id);
+    const pm={};(prog||[]).forEach(p=>{pm[p.missao_id]=p;});
+    if(!missoes||missoes.length===0){el.innerHTML='<div class="empty">Nenhuma missão disponível</div>';return;}
+    el.innerHTML=missoes.map(m=>{const p=pm[m.id]||{progresso:0,completa:false};const pct=Math.min(100,Math.round(p.progresso/m.meta*100));return'<div class="mcard"><div class="mcard-ic" style="background:var(--acc-d)">🎯</div><div class="mcard-info"><div class="mcard-t">'+escHtml(m.titulo)+'</div><div class="mcard-d">'+escHtml(m.descricao||'')+'</div><div class="mbar"><div class="mbar-f" style="width:'+pct+'%;background:'+(p.completa?'var(--grn)':'var(--acc)')+'"></div></div><div style="font-size:11px;color:var(--text-d);margin-top:4px">'+(p.completa?'✅ Completa!':p.progresso+' / '+m.meta)+'</div></div><div class="mcard-rw"><div class="v">'+m.recompensa_creditos+'</div><div class="l">créditos</div></div></div>';}).join('');
+  } else if (tab==='creditos'||tab==='cred') {
+    el.innerHTML='<div style="background:var(--bg-2);border:1px solid var(--border);border-radius:12px;padding:24px;text-align:center;margin-bottom:16px"><div style="font-family:var(--fh);font-size:12px;color:var(--text-d);letter-spacing:2px;margin-bottom:8px">SALDO DE CRÉDITOS</div><div style="font-family:var(--fm);font-size:36px;font-weight:700;color:var(--gld)">'+(profile.creditos||0)+' ⓒ</div><div style="font-size:12px;color:var(--text-d);margin-top:8px">Ganhe créditos convidando amigos e completando missões</div></div>';
+    if(sb){const{data:logs}=await sb.from('creditos_log').select('*').eq('server_profile_id',profile.id).order('created_at',{ascending:false}).limit(20);if(logs&&logs.length>0){el.innerHTML+='<div style="font-family:var(--fh);font-size:12px;color:var(--blu);letter-spacing:2px;margin-bottom:10px">HISTÓRICO</div>'+logs.map(l=>'<div style="display:flex;align-items:center;gap:10px;padding:8px;border-bottom:1px solid var(--border)"><span style="font-family:var(--fm);font-size:13px;font-weight:700;color:'+(l.valor>0?'var(--grn)':'var(--red)')+';width:60px;text-align:right">'+(l.valor>0?'+':'')+l.valor+'</span><span style="font-size:12px;color:var(--text);flex:1">'+escHtml(l.descricao||l.tipo)+'</span><span style="font-size:10px;color:var(--text-d)">'+timeAgo(l.created_at)+'</span></div>').join('');}}
+  } else if (tab==='posts') {
+    if(!sb||!profile)return;
+    const{data}=await sb.from('posts').select('*').eq('server_profile_id',profile.id).in('status',['ativo','congelado']).order('created_at',{ascending:false}).limit(30);
+    if(!data||data.length===0){el.innerHTML='<div class="empty">Nenhum post ainda</div>';return;}
+    let html='<div id="myPostsList">';
+    data.forEach(p=>{
+      const ic={feed:'◈',media:'◧',video:'▶',enquete:'◫',anuncio:'◆',mural:'📌'}[p.tipo]||'◈';
+      const isAn=p.tipo==='anuncio';
+      html+='<div style="background:var(--bg-2);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:10px;display:flex;gap:14px;position:relative"><div style="width:60px;height:60px;border-radius:8px;background:var(--bg-4);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:20px;overflow:hidden;cursor:pointer" onclick="window.location.href=\'/post/'+p.id+'\'">'+(p.imagem_url?'<img src="'+p.imagem_url+'" style="width:100%;height:100%;object-fit:cover">':ic)+'</div><div style="flex:1;min-width:0;cursor:pointer" onclick="window.location.href=\'/post/'+p.id+'\'"><div style="font-size:10px;color:var(--text-d);letter-spacing:1px;text-transform:uppercase">'+ic+' '+p.tipo+(p.status==='congelado'?' <span style="color:var(--blu)">❄️</span>':'')+'</div><div style="font-size:13px;color:var(--text-b);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escHtml(p.conteudo||'')+'</div><div style="display:flex;gap:12px;margin-top:8px;font-size:11px;color:var(--text-d);font-family:var(--fm)"><span>❤️ '+p.likes_count+'</span><span>💬 '+p.comments_count+'</span><span>👁 '+fmtNum(p.views_count)+'</span></div></div><div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">'+(isAn?'<button style="padding:4px 8px;border-radius:4px;border:1px solid var(--gld);background:transparent;color:var(--gld);font-size:10px;cursor:pointer" onclick="event.stopPropagation();promoverAnuncio(\''+p.id+'\')" title="Promover por 200ⓒ/24h">⚡</button>':'')+'<button style="padding:4px 8px;border-radius:4px;border:1px solid var(--blu);background:transparent;color:var(--blu);font-size:10px;cursor:pointer" onclick="event.stopPropagation();myPostAction(\''+p.id+'\',\'congelado\')" title="Congelar">❄️</button><button style="padding:4px 8px;border-radius:4px;border:1px solid var(--red);background:transparent;color:var(--red);font-size:10px;cursor:pointer" onclick="event.stopPropagation();myPostAction(\''+p.id+'\',\'deletado\')" title="Deletar">🗑️</button></div></div>';
     });
-    html += '</div><div id="myPostsList">';
-    
-    data.forEach(p => {
-      const icon = { feed:'◈', media:'◧', video:'▶', enquete:'◫', anuncio:'◆', mural:'📌' }[p.tipo] || '◈';
-      html += '<div class="post-mini-item" data-tipo="' + p.tipo + '" style="background:var(--bg-2);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:10px;cursor:pointer;display:flex;gap:14px">' +
-        '<div style="width:60px;height:60px;border-radius:8px;background:var(--bg-4);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:20px;overflow:hidden">' + (p.imagem_url ? '<img src="'+p.imagem_url+'" style="width:100%;height:100%;object-fit:cover">' : icon) + '</div>' +
-        '<div style="flex:1;min-width:0"><div style="font-size:10px;color:var(--text-d);letter-spacing:1px;text-transform:uppercase">' + icon + ' ' + p.tipo + '</div><div style="font-size:13px;color:var(--text-b);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escHtml(p.conteudo || '') + '</div><div style="display:flex;gap:12px;margin-top:8px;font-size:11px;color:var(--text-d);font-family:var(--fm)"><span>❤️ ' + p.likes_count + '</span><span>💬 ' + p.comments_count + '</span><span>👁 ' + fmtNum(p.views_count) + '</span></div></div></div>';
-    });
-    html += '</div>';
-    el.innerHTML = html;
+    html+='</div>';
+    el.innerHTML=html;
   }
-}
-
-// Filter posts in profile
-function filterMyPosts(tipo) {
-  document.querySelectorAll('#profContent .ltab').forEach(t => t.classList.remove('on'));
-  event.target.closest('.ltab').classList.add('on');
-  document.querySelectorAll('.post-mini-item').forEach(el => {
-    el.style.display = (!tipo || el.dataset.tipo === tipo) ? 'flex' : 'none';
-  });
 }
 
 function pickAvatar() {
@@ -1495,9 +1466,25 @@ publicar = async function() {
 
 async function votar(postId, idx) {
   if (!sb || !profile) return;
-  const { error } = await sb.from('enquete_votos').insert({ post_id: postId, server_profile_id: profile.id, opcao_idx: idx });
-  if (error && error.message.includes('unique')) { return; }
-  // Increment vote count in post
+  // Check if already voted
+  const { data: existing } = await sb.from('enquete_votos')
+    .select('id, opcao_idx')
+    .eq('post_id', postId)
+    .eq('server_profile_id', profile.id)
+    .maybeSingle();
+  
+  if (existing) {
+    alert('Você já votou nesta enquete!');
+    return;
+  }
+  
+  const { error } = await sb.from('enquete_votos').insert({
+    post_id: postId, server_profile_id: profile.id, opcao_idx: idx
+  });
+  
+  if (error) { console.error('Vote error:', error); return; }
+  
+  // Update vote count in post
   const { data: post } = await sb.from('posts').select('enquete_opcoes').eq('id', postId).single();
   if (post && post.enquete_opcoes) {
     const opts = typeof post.enquete_opcoes === 'string' ? JSON.parse(post.enquete_opcoes) : post.enquete_opcoes;
@@ -1559,6 +1546,48 @@ async function trocarPontos() {
   profile.creditos += creditos;
   updateUI();
   loadCraftPontos();
+}
+
+// ══════ ANÚNCIO RÁPIDO (impulsionar) ══════
+async function promoverAnuncio(postId) {
+  if (!sb || !profile) return;
+  if (profile.creditos < 200) {
+    alert('Saldo insuficiente! Você precisa de 200 créditos. Saldo atual: ' + (profile.creditos||0) + ' ⓒ');
+    return;
+  }
+  if (!confirm('Promover este anúncio por 24h na sidebar por 200 créditos?')) return;
+  
+  const expira = new Date(Date.now() + 24*60*60*1000).toISOString();
+  
+  // Debit credits
+  await sb.from('server_profiles').update({ creditos: profile.creditos - 200 }).eq('id', profile.id);
+  profile.creditos -= 200;
+  
+  // Create quick ad
+  await sb.from('anuncios_rapidos').insert({
+    post_id: postId, server_profile_id: profile.id, custo: 200, expira_em: expira
+  });
+  
+  // Log
+  await sb.from('creditos_log').insert({
+    server_profile_id: profile.id, servidor_id: servidor.id,
+    tipo: 'anuncio_rapido', valor: -200, descricao: 'Anúncio rápido 24h'
+  }).catch(()=>{});
+  
+  updateUI();
+  loadQuickAds();
+  alert('✅ Anúncio promovido! Vai aparecer na sidebar por 24h.');
+}
+
+// ══════ MODERAÇÃO DO PRÓPRIO POST ══════
+async function myPostAction(postId, action) {
+  if (!sb || !profile) return;
+  const labels = { congelado: 'congelar', deletado: 'deletar' };
+  if (!confirm('Tem certeza que quer ' + labels[action] + ' este post?')) return;
+  
+  await sb.from('posts').update({ status: action }).eq('id', postId).eq('server_profile_id', profile.id);
+  profTab('posts');
+  loadFeed();
 }
 
 // ══════ ADMIN PANEL ══════
