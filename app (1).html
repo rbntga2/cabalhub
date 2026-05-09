@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=1280">
-<title>CabalHub.online</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Ctext y=%2728%27 font-size=%2728%27%3E🎮%3C/text%3E%3C/svg%3E">
+<title>SocialPlay.online</title>
 <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Exo+2:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 <script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
@@ -57,7 +58,7 @@
 .atag{background:linear-gradient(135deg,var(--acc),var(--gld));color:#000;font-family:var(--fh);font-size:10px;font-weight:700;padding:3px 10px;border-radius:6px;letter-spacing:1px;margin-left:auto}
 .mtag{background:linear-gradient(135deg,var(--blu),var(--pur));color:#fff;font-family:var(--fh);font-size:10px;font-weight:700;padding:3px 10px;border-radius:6px;letter-spacing:1px;margin-left:auto}
 .pb{padding:12px 16px;font-size:14px;line-height:1.65;color:var(--text)}
-.pimg{margin:0 16px 12px;border-radius:10px;overflow:hidden;border:1px solid var(--border)}.pimg img{width:100%;display:block}
+.pimg{margin:8px 40px 12px;border-radius:12px;overflow:hidden;border:2px solid var(--border);text-align:center;background:var(--bg-0);max-height:380px}.pimg img{max-width:100%;max-height:380px;width:auto;height:auto;display:block;margin:0 auto;object-fit:contain}
 .pvid{margin:0 16px 12px;border-radius:10px;overflow:hidden;border:1px solid var(--border);aspect-ratio:16/9;background:#000}.pvid iframe{width:100%;height:100%;border:none}
 /* spoiler inline */
 .spi{display:inline-block;background:linear-gradient(135deg,#7c3aed,#a78bfa);color:transparent;padding:2px 14px;border-radius:6px;cursor:pointer;transition:all .3s;font-weight:600;user-select:none;position:relative;min-width:60px;text-align:center}.spi::before{content:'✦ $spoiler';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:600;letter-spacing:.5px;transition:opacity .3s}.spi.rev{background:var(--bg-3);color:var(--gld)}.spi.rev::before{opacity:0}
@@ -180,7 +181,7 @@
 
 <!-- ═══ TOPBAR ═══ -->
 <div class="top">
-  <div class="logo" onclick="nav('feed')">CABALHUB<span>.ONLINE</span></div>
+  <div class="logo" onclick="nav('feed')">SOCIALPLAY<span>.ONLINE</span></div>
   <div class="tnav">
     <div class="tl on" data-p="feed" onclick="navTop('feed')">HOME</div>
     <div class="tl" data-p="loja" onclick="navTop('loja')">LOJA</div>
@@ -636,7 +637,7 @@ function renderPost(p) {
   }
   
   let mediaHtml = '';
-  if (p.imagem_url) mediaHtml = '<div class="pimg"><img src="'+p.imagem_url+'" alt=""></div>';
+  if (p.imagem_url) mediaHtml = '<div class="pimg"><img src="'+p.imagem_url+'" alt="" style="cursor:pointer" data-full="'+p.imagem_url+'"></div>';
   if (p.video_url) {
     const embed = getEmbedUrl(p.video_url);
     if (embed) mediaHtml = '<div class="pvid"><iframe src="'+embed+'" allowfullscreen></iframe></div>';
@@ -865,8 +866,8 @@ function insertSpoiler() {
   document.getElementById('btnPublicar').disabled = false;
 }
 
-function toggleAnuncio() { /* TODO: toggle anuncio fields */ }
-function toggleEnquete() { /* TODO: toggle enquete fields */ }
+
+
 
 async function publicar() {
   if (!sb || !profile) return;
@@ -1501,9 +1502,10 @@ async function adminTab(tab) {
       for (const s of servidores) {
         const { count: users } = await sb.from('server_profiles').select('*', { count: 'exact', head: true }).eq('servidor_id', s.id);
         const { count: posts } = await sb.from('posts').select('*', { count: 'exact', head: true }).eq('servidor_id', s.id);
-        const { count: entradas } = await sb.from('server_migrations').select('*', { count: 'exact', head: true }).eq('to_servidor_id', s.id);
-        const { count: saidas } = await sb.from('server_migrations').select('*', { count: 'exact', head: true }).eq('from_servidor_id', s.id);
-        html += '<tr style="border-bottom:1px solid var(--border)"><td style="padding:10px;font-weight:600;color:var(--text-b)">' + s.nome + '</td><td style="padding:10px;text-align:center;font-family:var(--fm);color:var(--acc)">' + (users||0) + '</td><td style="padding:10px;text-align:center;font-family:var(--fm)">' + (posts||0) + '</td><td style="padding:10px;text-align:center;font-family:var(--fm);color:var(--grn)">+' + (entradas||0) + '</td><td style="padding:10px;text-align:center;font-family:var(--fm);color:var(--red)">-' + (saidas||0) + '</td></tr>';
+        var entradas = 0, saidas = 0;
+        try { var r1 = await sb.from('server_migrations').select('*', { count: 'exact', head: true }).eq('to_servidor_id', s.id); entradas = r1.count || 0; } catch(e) {}
+        try { var r2 = await sb.from('server_migrations').select('*', { count: 'exact', head: true }).eq('from_servidor_id', s.id); saidas = r2.count || 0; } catch(e) {}
+        html += '<tr style="border-bottom:1px solid var(--border)"><td style="padding:10px;font-weight:600;color:var(--text-b)">' + s.nome + '</td><td style="padding:10px;text-align:center;font-family:var(--fm);color:var(--acc)">' + (users||0) + '</td><td style="padding:10px;text-align:center;font-family:var(--fm)">' + (posts||0) + '</td><td style="padding:10px;text-align:center;font-family:var(--fm);color:var(--grn)">+' + entradas + '</td><td style="padding:10px;text-align:center;font-family:var(--fm);color:var(--red)">-' + saidas + '</td></tr>';
       }
       html += '</table>';
       el.innerHTML = html;
@@ -1513,16 +1515,17 @@ async function adminTab(tab) {
       const { count: users } = await sb.from('server_profiles').select('*', { count: 'exact', head: true }).eq('servidor_id', srvId);
       const { count: posts } = await sb.from('posts').select('*', { count: 'exact', head: true }).eq('servidor_id', srvId);
       const { data: topPosts } = await sb.from('posts').select('conteudo, likes_count, views_count, comments_count').eq('servidor_id', srvId).order('views_count', { ascending: false }).limit(10);
-      const { count: entradas } = await sb.from('server_migrations').select('*', { count: 'exact', head: true }).eq('to_servidor_id', srvId);
-      const { count: saidas } = await sb.from('server_migrations').select('*', { count: 'exact', head: true }).eq('from_servidor_id', srvId);
+      var entradas2 = 0, saidas2 = 0;
+      try { var r3 = await sb.from('server_migrations').select('*', { count: 'exact', head: true }).eq('to_servidor_id', srvId); entradas2 = r3.count || 0; } catch(e) {}
+      try { var r4 = await sb.from('server_migrations').select('*', { count: 'exact', head: true }).eq('from_servidor_id', srvId); saidas2 = r4.count || 0; } catch(e) {}
       const { count: anuncios } = await sb.from('posts').select('*', { count: 'exact', head: true }).eq('servidor_id', srvId).eq('tipo', 'anuncio');
       
       let html = '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:24px">';
       html += '<div style="background:var(--bg-2);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center"><div style="font-family:var(--fm);font-size:22px;font-weight:700;color:var(--acc)">' + (users||0) + '</div><div style="font-size:11px;color:var(--text-d)">Players</div></div>';
       html += '<div style="background:var(--bg-2);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center"><div style="font-family:var(--fm);font-size:22px;font-weight:700;color:var(--blu)">' + (posts||0) + '</div><div style="font-size:11px;color:var(--text-d)">Posts</div></div>';
       html += '<div style="background:var(--bg-2);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center"><div style="font-family:var(--fm);font-size:22px;font-weight:700;color:var(--gld)">' + (anuncios||0) + '</div><div style="font-size:11px;color:var(--text-d)">Anúncios</div></div>';
-      html += '<div style="background:var(--bg-2);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center"><div style="font-family:var(--fm);font-size:22px;font-weight:700;color:var(--grn)">+' + (entradas||0) + '</div><div style="font-size:11px;color:var(--text-d)">Entradas</div></div>';
-      html += '<div style="background:var(--bg-2);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center"><div style="font-family:var(--fm);font-size:22px;font-weight:700;color:var(--red)">-' + (saidas||0) + '</div><div style="font-size:11px;color:var(--text-d)">Saídas</div></div></div>';
+      html += '<div style="background:var(--bg-2);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center"><div style="font-family:var(--fm);font-size:22px;font-weight:700;color:var(--grn)">+' + entradas2 + '</div><div style="font-size:11px;color:var(--text-d)">Entradas</div></div>';
+      html += '<div style="background:var(--bg-2);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center"><div style="font-family:var(--fm);font-size:22px;font-weight:700;color:var(--red)">-' + saidas2 + '</div><div style="font-size:11px;color:var(--text-d)">Saídas</div></div></div>';
       
       html += '<div style="font-family:var(--fh);font-size:12px;color:var(--blu);letter-spacing:2px;margin-bottom:12px">TOP 10 POSTS (por visualizações)</div>';
       if (topPosts && topPosts.length > 0) {
@@ -1532,6 +1535,8 @@ async function adminTab(tab) {
       }
       el.innerHTML = html;
     }
+    // Admin quick actions
+    el.innerHTML += '<div style="margin-top:24px;padding:16px;background:var(--bg-2);border:1px solid var(--border);border-radius:12px"><div style="font-family:var(--fh);font-size:12px;color:var(--acc);letter-spacing:2px;margin-bottom:12px">AÇÕES RÁPIDAS</div><div style="display:flex;gap:8px;flex-wrap:wrap"><button style="padding:10px 16px;border-radius:8px;background:var(--acc);color:#000;border:none;cursor:pointer;font-weight:600;font-size:12px;font-family:var(--fb)" onclick="adminCreditUser()">👤 Creditar Usuário</button><button style="padding:10px 16px;border-radius:8px;background:transparent;border:1px solid var(--gld);color:var(--gld);cursor:pointer;font-weight:600;font-size:12px;font-family:var(--fb)" onclick="adminBulkCredits()">💰 Créditos em Massa</button><button style="padding:10px 16px;border-radius:8px;background:transparent;border:1px solid var(--pur);color:var(--pur);cursor:pointer;font-weight:600;font-size:12px;font-family:var(--fb)" onclick="adminPostMural()">📌 Postar no Mural</button></div></div>';
   } else if (tab === 'posts') {
     const srvId = adminSrv === 'all' ? null : adminSrv;
     let query = sb.from('posts').select('*, server_profiles(nick)').order('created_at', { ascending: false }).limit(50);
@@ -1559,8 +1564,9 @@ async function adminTab(tab) {
     let html = '<div style="display:flex;gap:8px;margin-bottom:16px"><input class="comp-in" id="newSrvNome" placeholder="Nome do novo servidor" style="min-height:auto;padding:10px;max-width:200px"><select class="lf" id="newSrvRegiao"><option>Brasil</option><option>EUA</option><option>Europa</option><option>Ásia</option></select><button class="csub" style="margin:0" onclick="adminAddServer()">Adicionar</button></div>';
     html += (data || []).map(s => '<div style="display:flex;align-items:center;gap:12px;padding:12px;border-bottom:1px solid var(--border)"><span style="font-weight:600;color:var(--text-b);flex:1">' + s.nome + '</span><span style="font-size:12px;color:var(--text-d)">' + s.regiao + '</span><label style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--text-d);cursor:pointer"><input type="checkbox" ' + (s.craft_ativo ? 'checked' : '') + ' onchange="adminToggleCraft(\'' + s.id + '\',this.checked)" style="accent-color:var(--grn)"> Craft</label><label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer"><input type="checkbox" ' + (s.ativo ? 'checked' : '') + ' onchange="adminToggleServer(\'' + s.id + '\',this.checked)" style="accent-color:var(--acc)"> Ativo</label></div>').join('');
     
-    // Show server requests
-    const { data: reqs } = await sb.from('server_requests').select('nome_servidor, count').order('nome_servidor');
+    // Show server requests (may not exist)
+    try {
+      const { data: reqs } = await sb.from('server_requests').select('nome_servidor').order('nome_servidor');
     // Group by name
     const reqMap = {};
     (reqs || []).forEach(r => { reqMap[r.nome_servidor] = (reqMap[r.nome_servidor] || 0) + 1; });
@@ -1570,6 +1576,7 @@ async function adminTab(tab) {
         html += '<div style="display:flex;align-items:center;gap:12px;padding:8px;border-bottom:1px solid var(--border)"><span style="flex:1;color:var(--text-b)">' + escHtml(nome) + '</span><span style="font-family:var(--fm);color:var(--acc)">' + count + ' votos</span></div>';
       });
     }
+    } catch(e) { /* server_requests table may not exist */ }
     el.innerHTML = html;
   } else if (tab === 'features') {
     const { data } = await sb.from('features_config').select('*').order('nome');
@@ -1646,8 +1653,8 @@ async function adminTab(tab) {
     html += '<div style="font-family:var(--fh);font-size:13px;color:var(--red);letter-spacing:1px;margin-bottom:8px">⚠️ AÇÕES PERIGOSAS</div>';
     html += '<div style="display:flex;gap:12px;flex-wrap:wrap">';
     html += '<button style="padding:10px 20px;border-radius:8px;background:transparent;border:1px solid var(--red);color:var(--red);font-family:var(--fb);font-size:12px;font-weight:600;cursor:pointer" onclick="adminResetMissions()">🔄 Resetar Todas as Missões</button>';
-    html += '<button style="padding:10px 20px;border-radius:8px;background:transparent;border:1px solid var(--gld);color:var(--gld);font-family:var(--fb);font-size:12px;font-weight:600;cursor:pointer" onclick="adminBulkCredits()">💰 Dar Créditos em Massa</button>';
-    html += '<button style="padding:10px 20px;border-radius:8px;background:transparent;border:1px solid var(--acc);color:var(--acc);font-family:var(--fb);font-size:12px;font-weight:600;cursor:pointer;margin-left:8px" onclick="adminCreditUser()">👤 Creditar Usuário Individual</button>';
+    html += '<button style="padding:10px 20px;border-radius:8px;background:transparent;border:1px solid var(--gld);color:var(--gld);font-family:var(--fb);font-size:12px;font-weight:600;cursor:pointer" onclick="adminBulkCredits()">💰 Créditos em Massa</button>';
+    html += ' <button style="padding:10px 20px;border-radius:8px;background:var(--acc);color:#000;font-family:var(--fb);font-size:12px;font-weight:600;cursor:pointer;border:none" onclick="adminCreditUser()">👤 Creditar Usuário</button>';
     html += '</div></div>';
     
     el.innerHTML = html;
@@ -1761,6 +1768,59 @@ async function openPostById(pid) {
   toggleComments(pid);
 }
 checkRoute();
+
+// ══════ REPLY + SHOW ALL COMMENTS ══════
+var _replyTo = null;
+function replyComment(postId,commentId,nick){_replyTo={postId:postId,commentId:commentId};var ind=document.getElementById('reply-ind-'+postId);if(ind)ind.innerHTML='<div style="font-size:11px;color:var(--blu);padding:4px 8px;background:var(--bg-3);border-radius:6px;display:flex;align-items:center;gap:6px;margin-bottom:4px">↩️ Respondendo <strong>'+nick+'</strong> <span onclick="cancelReply(\''+postId+'\')" style="margin-left:auto;cursor:pointer;color:var(--red)">✕</span></div>';var inp=document.getElementById('ci-'+postId)||document.getElementById('lci-'+postId);if(inp){inp.placeholder='Respondendo '+nick+'...';inp.focus();}}
+function cancelReply(postId){_replyTo=null;var ind=document.getElementById('reply-ind-'+postId);if(ind)ind.innerHTML='';var inp=document.getElementById('ci-'+postId)||document.getElementById('lci-'+postId);if(inp)inp.placeholder='Comentar... ($spoiler: valor)';}
+async function showAllCom(postId){var el=document.getElementById('coms-'+postId);if(!sb||!el)return;var{data:all}=await sb.from('comments').select('*, server_profiles(nick, avatar_url)').eq('post_id',postId).order('created_at',{ascending:true});var parents=(all||[]).filter(function(c){return !c.parent_id;});var replies=(all||[]).filter(function(c){return c.parent_id;});var rm={};replies.forEach(function(r){if(!rm[r.parent_id])rm[r.parent_id]=[];rm[r.parent_id].push(r);});var h='<div class="comh"><span>Comentários</span><span class="t">'+(all||[]).length+'</span></div>';parents.forEach(function(c){h+=renderComment(c,postId);if(rm[c.id])rm[c.id].forEach(function(r){h+='<div class="com-rp">'+renderComment(r,postId)+'</div>';});});h+='<div id="reply-ind-'+postId+'"></div><div class="com-input"><input placeholder="Comentar... ($spoiler: valor)" id="ci-'+postId+'" onkeydown="if(event.key===\'Enter\')addComment(\''+postId+'\')"><button onclick="addComment(\''+postId+'\')">Enviar</button></div>';el.innerHTML=h;}
+
+// ══════ PROFILE TABS ══════
+async function profTab(tab) {
+  var tabs=document.querySelectorAll('.ptab');tabs.forEach(function(t){t.classList.remove('on');});
+  tabs.forEach(function(t){if(t.textContent.toLowerCase().includes(tab.substring(0,4)))t.classList.add('on');});
+  var el=document.getElementById('profContent');if(!el)return;
+  if(tab==='notif'){
+    if(!sb||!profile){el.innerHTML='<div class="empty">Sem dados</div>';return;}
+    var nr=await sb.from('notifications').select('*').eq('server_profile_id',profile.id).order('created_at',{ascending:false}).limit(30);var data=nr.data;
+    if(!data||!data.length){el.innerHTML='<div class="empty">Nenhuma notificação</div>';return;}
+    var ic={like:'❤️',comment:'💬',spoiler:'✦',invite:'👥',mission:'🎯',system:'✅'};
+    el.innerHTML=data.map(function(n){var ck=n.post_id?' onclick="window.location.href=\'/post/'+n.post_id+'\'" style="cursor:pointer"':'';return'<div style="display:flex;gap:12px;padding:12px;border-bottom:1px solid var(--border)"'+ck+'><div style="font-size:16px">'+(ic[n.tipo]||'🔔')+'</div><div><div style="font-size:13px;color:var(--text)">'+escHtml(n.conteudo||'')+'</div><div style="font-size:11px;color:var(--text-d)">'+timeAgo(n.created_at)+'</div></div></div>';}).join('');
+    sb.from('notifications').update({lido:true}).eq('server_profile_id',profile.id).eq('lido',false).then(function(){}).catch(function(){});
+  }else if(tab==='convites'||tab==='conv'){
+    var rl=location.origin+'?ref='+encodeURIComponent(profile.nick||'');
+    var rc=0;if(sb){var rr=await sb.from('referrals').select('id').eq('referrer_profile_id',profile.id);rc=rr.data?rr.data.length:0;}
+    el.innerHTML='<div style="background:var(--bg-2);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px"><div style="font-size:14px;color:var(--acc);font-weight:700;margin-bottom:4px">SEU LINK DE CONVITE</div><div style="font-size:12px;color:var(--text-d);margin-bottom:12px">Vocês dois ganham <strong style="color:var(--gld)">50 créditos</strong> cada!</div><div style="display:flex;gap:8px"><div style="flex:1;background:var(--bg-1);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--acc);font-family:monospace;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;user-select:all">'+rl+'</div><button onclick="navigator.clipboard.writeText(\''+rl+'\');this.textContent=\'Copiado!\';var b=this;setTimeout(function(){b.textContent=\'Copiar\'},2000)" style="padding:8px 16px;background:var(--acc);color:#000;border:none;border-radius:8px;cursor:pointer;font-weight:600">Copiar</button></div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:16px"><div style="background:var(--bg-1);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center"><div style="font-family:monospace;font-size:22px;font-weight:700;color:var(--acc)">'+rc+'</div><div style="font-size:11px;color:var(--text-d)">Convidados</div></div><div style="background:var(--bg-1);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center"><div style="font-family:monospace;font-size:22px;font-weight:700;color:var(--gld)">'+(rc*50)+'</div><div style="font-size:11px;color:var(--text-d)">Créditos ganhos</div></div><div style="background:var(--bg-1);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center"><div style="font-family:monospace;font-size:22px;font-weight:700;color:var(--grn)">'+(profile.creditos||0)+'</div><div style="font-size:11px;color:var(--text-d)">Saldo total</div></div></div></div>';
+  }else if(tab==='missoes'||tab==='miss'){
+    if(!sb||!profile)return;var mr=await sb.from('missoes').select('*').eq('ativo',true);var m=mr.data;
+    if(!m||!m.length){el.innerHTML='<div class="empty">Nenhuma missão</div>';return;}
+    el.innerHTML=m.map(function(x){return'<div style="background:var(--bg-2);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:8px"><div style="font-weight:600;color:var(--text-b)">'+escHtml(x.titulo)+'</div><div style="font-size:12px;color:var(--text-d)">'+escHtml(x.descricao||'')+'</div><div style="font-size:12px;color:var(--gld);margin-top:4px">Recompensa: '+x.recompensa_creditos+' ⓒ</div></div>';}).join('');
+  }else if(tab==='creditos'||tab==='cred'){
+    el.innerHTML='<div style="background:var(--bg-2);border:1px solid var(--border);border-radius:12px;padding:24px;text-align:center"><div style="font-size:12px;color:var(--text-d)">SALDO</div><div style="font-size:36px;font-weight:700;color:var(--gld);font-family:monospace">'+(profile.creditos||0)+' ⓒ</div></div>';
+  }else if(tab==='posts'){
+    if(!sb||!profile)return;var pr2=await sb.from('posts').select('*').eq('server_profile_id',profile.id).in('status',['ativo','congelado']).order('created_at',{ascending:false}).limit(30);var posts=pr2.data;
+    if(!posts||!posts.length){el.innerHTML='<div class="empty">Nenhum post</div>';return;}
+    el.innerHTML=posts.map(function(p){var ic={feed:'◈',media:'◧',video:'▶',enquete:'◫',anuncio:'◆',mural:'📌'}[p.tipo]||'◈';var isAn=p.tipo==='anuncio';return'<div style="background:var(--bg-2);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:8px;display:flex;gap:14px"><div style="width:60px;height:60px;border-radius:8px;background:var(--bg-4);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:20px;overflow:hidden;cursor:pointer" onclick="window.location.href=\'/post/'+p.id+'\'">'+(p.imagem_url?'<img src="'+p.imagem_url+'" style="width:100%;height:100%;object-fit:cover">':ic)+'</div><div style="flex:1;min-width:0;cursor:pointer" onclick="window.location.href=\'/post/'+p.id+'\'"><div style="font-size:10px;color:var(--text-d)">'+ic+' '+p.tipo+(p.status==='congelado'?' ❄️':'')+'</div><div style="font-size:13px;color:var(--text-b);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escHtml(p.conteudo||'')+'</div><div style="display:flex;gap:12px;margin-top:8px;font-size:11px;color:var(--text-d);font-family:monospace"><span>❤️ '+p.likes_count+'</span><span>💬 '+p.comments_count+'</span><span>👁 '+p.views_count+'</span></div></div><div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">'+(isAn?'<button style="padding:4px 8px;border-radius:4px;border:1px solid var(--gld);background:transparent;color:var(--gld);font-size:10px;cursor:pointer" onclick="event.stopPropagation();promoverAnuncio(\''+p.id+'\')" title="Promover 200ⓒ">⚡</button>':'')+'<button style="padding:4px 8px;border-radius:4px;border:1px solid var(--blu);background:transparent;color:var(--blu);font-size:10px;cursor:pointer" onclick="event.stopPropagation();myPostAction(\''+p.id+'\',\'congelado\')" title="Congelar">❄️</button><button style="padding:4px 8px;border-radius:4px;border:1px solid var(--red);background:transparent;color:var(--red);font-size:10px;cursor:pointer" onclick="event.stopPropagation();myPostAction(\''+p.id+'\',\'deletado\')" title="Deletar">🗑️</button></div></div>';}).join('');
+  }
+}
+
+// ══════ PROMOTE + MODERATE + MURAL ══════
+async function promoverAnuncio(pid){if(!sb||!profile)return;if(profile.creditos<200){alert('Saldo insuficiente! Precisa 200ⓒ. Saldo: '+(profile.creditos||0));return;}if(!confirm('Promover por 24h gastando 200 créditos?'))return;await sb.from('server_profiles').update({creditos:profile.creditos-200}).eq('id',profile.id);profile.creditos-=200;var exp=new Date(Date.now()+24*3600000).toISOString();await sb.from('anuncios_rapidos').insert({post_id:pid,server_profile_id:profile.id,custo:200,expira_em:exp});sb.from('creditos_log').insert({server_profile_id:profile.id,servidor_id:servidor.id,tipo:'anuncio_rapido',valor:-200,descricao:'Anúncio rápido 24h'}).catch(function(){});updateUI();loadQuickAds();alert('✅ Promovido por 24h!');}
+async function myPostAction(pid,action){if(!sb||!profile)return;if(!confirm('Tem certeza que quer '+(action==='congelado'?'congelar':'deletar')+' este post?'))return;await sb.from('posts').update({status:action}).eq('id',pid).eq('server_profile_id',profile.id);if(typeof profTab==='function')profTab('posts');loadFeed();}
+async function adminCreditUser(){if(!sb)return;var nick=prompt('Nick do usuário:');if(!nick)return;var qtd=parseInt(prompt('Quantidade de créditos:'));if(!qtd||qtd<=0)return;var{data:prof}=await sb.from('server_profiles').select('id, creditos').eq('nick',nick).eq('servidor_id',servidor.id).maybeSingle();if(!prof){alert('Usuário "'+nick+'" não encontrado');return;}await sb.from('server_profiles').update({creditos:prof.creditos+qtd}).eq('id',prof.id);sb.from('creditos_log').insert({server_profile_id:prof.id,servidor_id:servidor.id,tipo:'admin_ajuste',valor:qtd,descricao:'Crédito manual admin'}).catch(function(){});alert('✅ '+qtd+' créditos para '+nick+'!');}
+async function adminPostMural(){if(!sb||!profile||!servidor)return;var text=prompt('Texto do mural:');if(!text)return;await sb.from('posts').insert({server_profile_id:profile.id,servidor_id:servidor.id,tipo:'mural',conteudo:text,last_liked_at:new Date().toISOString()});alert('📌 Mural publicado!');loadFeed();}
+
+// ══════ IMAGE LIGHTBOX ══════
+function expandImg(url){var ov=document.createElement('div');ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:300;display:flex;align-items:center;justify-content:center;cursor:pointer;backdrop-filter:blur(8px)';ov.onclick=function(){ov.remove();};var im=document.createElement('img');im.src=url;im.style.cssText='max-width:90vw;max-height:90vh;object-fit:contain;border-radius:12px';ov.appendChild(im);var cl=document.createElement('div');cl.innerHTML='✕';cl.style.cssText='position:absolute;top:20px;right:20px;color:#fff;font-size:24px;cursor:pointer;background:rgba(0,0,0,.5);width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center';ov.appendChild(cl);document.body.appendChild(ov);}
+
+// Image click delegation
+document.addEventListener('click', function(e) {
+  var img = e.target.closest('[data-full]');
+  if (img) expandImg(img.dataset.full);
+});
+
+// ══════ MISSION PROGRESS ══════
+async function checkMissionProgress(action){if(!sb||!profile)return;try{var{data:missoes}=await sb.from('missoes').select('*').eq('ativo',true);if(!missoes)return;for(var i=0;i<missoes.length;i++){var m=missoes[i];if(m.tipo_acao===action){var{data:prog}=await sb.from('missoes_progresso').select('*').eq('server_profile_id',profile.id).eq('missao_id',m.id).maybeSingle();if(!prog){await sb.from('missoes_progresso').insert({server_profile_id:profile.id,missao_id:m.id,progresso:1});}else if(!prog.completa){var np=prog.progresso+1;var done=np>=m.meta;await sb.from('missoes_progresso').update({progresso:np,completa:done,completed_at:done?new Date().toISOString():null}).eq('id',prog.id);if(done){await sb.from('server_profiles').update({creditos:profile.creditos+m.recompensa_creditos}).eq('id',profile.id);profile.creditos+=m.recompensa_creditos;sb.from('creditos_log').insert({server_profile_id:profile.id,servidor_id:servidor.id,tipo:'missao',valor:m.recompensa_creditos,descricao:'Missão: '+m.titulo}).catch(function(){});sb.from('notifications').insert({server_profile_id:profile.id,tipo:'mission',conteudo:'Missão completa: '+m.titulo+'! +'+m.recompensa_creditos+' créditos'}).catch(function(){});updateUI();}}}}}catch(e){console.log('mission err:',e);}}
 </script>
 </body>
 </html>
