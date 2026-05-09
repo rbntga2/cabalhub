@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=1280">
-<title>SocialPlay.online — A rede social do Cabal Online</title>
+<title>SocialPlay.online</title>
 <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Exo+2:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
@@ -68,12 +68,12 @@ async function ck(){
   const{data:{session}}=await sb.auth.getSession();
   if(session){
     const ref=new URLSearchParams(location.search).get('ref');
-    if(ref)localStorage.setItem('sp_ref',ref);
+    if(ref)localStorage.setItem('cabalhub_ref',ref);
     location.href='/app.html'
   }
 }
 const _rp=new URLSearchParams(location.search).get('ref');
-if(_rp)localStorage.setItem('sp_ref',_rp);
+if(_rp)localStorage.setItem('cabalhub_ref',_rp);
 ck();
 async function ldS(){if(!sb)return;try{const{data}=await sb.from('servidores').select('*').eq('ativo',true).order('nome');if(!data||!data.length)return;document.getElementById('sGrid').innerHTML=data.map(s=>'<div class="sc" onclick="loginGoogle()"><h3>'+s.nome.toUpperCase()+'</h3><div class="r">'+s.regiao+'</div><div class="s">— players</div><div class="e">ENTRAR</div></div>').join('')}catch(e){}}
 ldS();
